@@ -18,18 +18,13 @@ from ai_scientist.llm import (
 
 from ai_scientist.tools.semantic_scholar import search_for_papers
 
-from ai_scientist.perform_vlm_review import generate_vlm_img_review
-from ai_scientist.vlm import create_client as create_vlm_client
+
 
 # Validation system imports
 from ai_scientist.data_loader import load_experiment_data
 from ai_scientist.validators.consistency_checker import ConsistencyChecker
 from ai_scientist.reviewers.review_pipeline import ReviewPipeline
-
-# --- NEW: Validation system imports
-from ai_scientist.data_loader import load_experiment_data, format_data_for_prompt
-from ai_scientist.validators.consistency_checker import ConsistencyChecker
-from ai_scientist.reviewers.review_pipeline import ReviewPipeline
+from ai_scientist.perform_writeup_validation import run_validation_checks
 
 
 def remove_accents_and_clean(s):
@@ -749,6 +744,7 @@ Now let's reflect and identify any issues (including but not limited to):
 3) Have we included all relevant details from the summaries without hallucinating?
 4) The following figures are available in the folder but not used in the LaTeX: {sorted(unused_figs)}
 5) The following figure references in the LaTeX do not match any actual file: {sorted(invalid_figs)}
+{validation_feedback}
 {reflection_page_info}
 chktex results:
 ```
