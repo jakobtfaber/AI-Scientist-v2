@@ -1262,6 +1262,9 @@ USE MINIMAL EDITS TO OPTIMIZE THE PAGE LIMIT USAGE."""
     except Exception:
         print("EXCEPTION in perform_writeup:")
         print(traceback.format_exc())
+        exception_log = osp.join(base_folder, "writeup_exception.log")
+        with open(exception_log, "w") as f:
+            f.write(traceback.format_exc())
         return False
 
 
