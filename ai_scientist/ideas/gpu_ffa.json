@@ -1,0 +1,23 @@
+[
+  {
+    "Name": "gpu_ffa_pulsar",
+    "Title": "Accelerating Pulsar Discovery: A Robust GPU-Based Fast Folding Algorithm",
+    "Abstract": "The Fast Folding Algorithm (FFA) is a sensitive search technique for long-period pulsars, theoretically outperforming Fast Fourier Transform (FFT) methods in this domain. However, its O(N log N) computational cost per period trial has historically limited its use compared to FFTs, and existing implementations are largely CPU-bound. This research aims to develop the first robust, high-performance GPU-based implementation of the FFA. We hypothesize that by leveraging the massive parallelism of modern GPUs and optimizing memory access patterns for the FFA's butterfly structure, we can achieve significant speedups over state-of-the-art CPU implementations. This would enable real-time FFA processing for large-scale radio astronomy surveys.",
+    "Short Hypothesis": "A GPU-optimized Fast Folding Algorithm will significantly outperform CPU implementations, making it feasible for large-scale pulsar surveys.",
+    "Related Work": "Standard pulsar search pipelines (e.g., PRESTO, SIGPROC) rely heavily on FFTs or CPU-based FFAs (e.g., riptide). Recent work has accelerated FFTs and dedispersion on GPUs (e.g., AstroAccelerate), but a dedicated, open-source GPU FFA remains an open challenge due to the algorithm's complex memory access patterns.",
+    "Experiments": [
+      "Develop a reference Python/NumPy implementation of the Fast Folding Algorithm to verify correctness.",
+      "Implement a GPU-accelerated version using PyTorch or Numba/CUDA, focusing on efficient parallelization of the folding steps.",
+      "Generate synthetic pulsar data with varying periods, duty cycles, and noise levels to benchmark the implementations.",
+      "Compare the execution time and recovery sensitivity of the GPU FFA against the CPU baseline and theoretical expectations.",
+      "Optimize the GPU kernel for memory coalescing and minimizing bank conflicts to maximize throughput."
+    ],
+    "Risk Factors and Limitations": [
+      "The recursive structure of the FFA (similar to FFT) can have complex memory striding, leading to memory bandwidth bottlenecks on GPUs.",
+      "Precision issues with floating-point accumulation in large arrays might affect sensitivity.",
+      "Python-based GPU libraries (like PyTorch) might introduce overhead compared to raw CUDA C++, though they offer faster development."
+    ],
+    "Interestingness": 10,
+    "Heap": {}
+  }
+]

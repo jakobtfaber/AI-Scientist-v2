@@ -1,0 +1,193 @@
+Here is a complete LaTeX document structured according to the ICLR 2025 formatting guidelines.
+
+**Note:** To compile this document, you normally need the `iclr2025.sty` file and `iclr2025_conference.bst` file in your working directory. Since I cannot provide files directly, I have structured the code below so it relies on the standard `article` class but calls the `iclr2025` package.
+
+If you do not have the specific `iclr2025.sty` file, you can comment out `\usepackage{iclr2025}` and `\iclrfinalcopy` to compile it as a standard article, though the formatting will differ.
+
+```latex
+\documentclass{article}
+
+% If you have the ICLR 2025 style file, uncomment the following line:
+% \usepackage{iclr2025}
+% \usepackage[utf8]{inputenc} % allow utf-8 input
+% \usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+
+% ----------------------------------------------------------------------
+% SIMULATED ICLR STYLE (For standalone compilation without the .sty file)
+% If you possess the actual iclr2025.sty, delete this block and use 
+% \usepackage{iclr2025} and \iclrfinalcopy instead.
+\usepackage[margin=1.25in]{geometry}
+\usepackage{times}
+\newcommand{\iclrfinalcopy}{} 
+\date{}
+% ----------------------------------------------------------------------
+
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{graphicx}       % graphics
+\usepackage{amsmath}        % math package
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{subcaption}
+
+\title{AdaTile: Adaptive Tensor Tiling for Heterogeneous GPU Acceleration}
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+\author{
+  Jane Doe \\
+  Department of Computer Science\\
+  Stanford University\\
+  \texttt{janedoe@stanford.edu} \\
+  \and
+  John Smith \\
+  NVIDIA Research\\
+  Santa Clara, CA \\
+  \texttt{josmith@nvidia.com} \\
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+The exponential growth of deep learning models has placed unprecedented demand on Graphics Processing Unit (GPU) accelerators. While modern GPUs offer massive parallelism, achieving peak performance requires meticulous memory management and kernel tuning, particularly for General Matrix Multiplications (GEMM). Existing static tiling strategies often fail to adapt to the heterogeneous nature of modern datacenter clusters, leading to suboptimal memory coalescing and L2 cache thrashing. In this paper, we introduce \textbf{AdaTile}, a dynamic auto-tuning framework that optimizes tensor tiling dimensions at runtime based on hardware-specific memory hierarchy characteristics. We evaluate AdaTile across three distinct GPU architectures (NVIDIA A100, H100, and RTX 4090). Our results demonstrate that AdaTile achieves a geometric mean speedup of 1.24$\times$ over vendor-optimized libraries (cuBLAS) for irregular tensor shapes and reduces L2 cache miss rates by approximately 40\%.
+\end{abstract}
+
+\section{Introduction}
+
+The efficacy of modern Deep Neural Networks (DNNs), particularly Transformer-based architectures \cite{vaswani2017attention}, is heavily contingent on the throughput of underlying hardware accelerators. The computational core of these networks consists primarily of General Matrix Multiplications (GEMM) and convolution operations. Consequently, maximizing the utilization of GPU Tensor Cores has become a central focus of systems research.
+
+Despite the theoretical peak performance advertised by hardware vendors, real-world workloads often suffer from the "memory wall" bottleneck. As logic density scales faster than memory bandwidth, the cost of data movement dominates execution time. To mitigate this, efficient kernel implementations utilize \textit{tiling} (or blocking)—a technique where large matrices are divided into smaller sub-matrices that fit into the GPU's fast on-chip shared memory (SRAM).
+
+However, current state-of-the-art tiling strategies face significant challenges:
+\begin{enumerate}
+    \item \textbf{Static heuristics:} Libraries often rely on static look-up tables optimized for standard shapes (e.g., powers of 2), performing poorly on irregular dimensions found in dynamic NLP workloads.
+    \item \textbf{Architectural diversity:} A tiling configuration optimized for the massive L2 cache of an NVIDIA H100 may cause thrashing on consumer-grade cards or older server GPUs.
+\end{enumerate}
+
+To address these limitations, we propose \textbf{AdaTile}, a lightweight, Just-In-Time (JIT) compilation framework. AdaTile analytically models the GPU memory hierarchy to predict optimal tile sizes, minimizing global memory access latency.
+
+\section{Methodology}
+
+\subsection{Problem Formulation}
+We consider the standard GEMM operation $C = \alpha (A \times B) + \beta C$, where $A \in \mathbb{R}^{M \times K}$, $B \in \mathbb{R}^{K \times N}$, and $C \in \mathbb{R}^{M \times N}$. The objective is to determine the optimal tile sizes $\{T_m, T_n, T_k\}$ that minimize total execution time $E_{total}$.
+
+The execution time is modeled as a function of compute cycles and memory latency. Assuming a pipelined architecture where compute and memory access overlap, the time per tile is:
+\begin{equation}
+    T_{tile} = \max(T_{compute}(T_m, T_n, T_k), T_{mem}(T_m, T_n, T_k))
+\end{equation}
+
+Our optimization constraint is the size of the shared memory, $S_{mem}$:
+\begin{equation}
+    (T_m \times T_k + T_k \times T_n) \times \text{sizeof}(\text{dtype}) \leq S_{mem}
+\end{equation}
+
+\subsection{The AdaTile Framework}
+AdaTile departs from exhaustive search methods (autotuners) which are too slow for runtime dynamic shapes. Instead, it uses a cost model based on \textit{Occupancy} and \textit{Global Memory Coalescing}.
+
+\subsubsection{Occupancy-Aware Selection}
+GPU latency hiding relies on having enough active warps to switch between when waiting for memory. AdaTile calculates the register pressure for a given tile size and prunes configurations that drop theoretical occupancy below a threshold $\theta$ (typically 50\%).
+
+\subsubsection{Swizzled Data Layout}
+To prevent bank conflicts in shared memory, AdaTile implements an automated XOR-swizzling pattern. For a thread accessing shared memory address $A$, the mapped address $A'$ is calculated as:
+\begin{equation}
+    A' = A \oplus (A \gg \text{shift\_bits})
+\end{equation}
+This distributes strided accesses across different memory banks, maximizing effective bandwidth.
+
+\section{Experimental Setup}
+
+\subsection{Hardware and Software}
+We evaluate performance on three NVIDIA GPU architectures to demonstrate portability:
+\begin{itemize}
+    \item \textbf{NVIDIA A100 (80GB):} Ampere architecture, high bandwidth memory (HBM2e).
+    \item \textbf{NVIDIA H100 (80GB):} Hopper architecture, featuring TMA (Tensor Memory Accelerator).
+    \item \textbf{NVIDIA RTX 4090 (24GB):} Ada Lovelace architecture, consumer-grade.
+\end{itemize}
+
+All systems run Ubuntu 22.04 with CUDA 12.1. We compare AdaTile against \textbf{cuBLAS} (vendor library) and \textbf{Triton} (OpenAI's language).
+
+\subsection{Benchmarks}
+We utilize two sets of benchmarks:
+1. \textbf{Square GEMMs:} Standard sizes ($1024^3$ to $16384^3$).
+2. \textbf{Irregular GEMMs:} Shapes derived from common Transformer layers (e.g., $M=128, N=32000, K=4096$).
+
+\section{Results}
+
+\subsection{Throughput Analysis}
+Table \ref{tab:tflops} presents the TFLOPS achieved on FP16 matrix multiplication. AdaTile consistently outperforms the baseline cuBLAS implementation on irregular shapes, while matching performance on standard power-of-two shapes.
+
+\begin{table}[h]
+\caption{Performance comparison (TFLOPS) on NVIDIA A100 (FP16). Higher is better.}
+\label{tab:tflops}
+\begin{center}
+\begin{tabular}{lcccc}
+\toprule
+\textbf{Dimensions (M, N, K)} & \textbf{cuBLAS} & \textbf{Triton} & \textbf{AdaTile (Ours)} & \textbf{Speedup vs cuBLAS} \\
+\midrule
+$4096, 4096, 4096$   & 285.4 & 290.1 & 291.5 & 1.02$\times$ \\
+$8192, 8192, 8192$   & 301.2 & 305.5 & 306.0 & 1.01$\times$ \\
+$127, 4096, 1024$    & 145.3 & 180.2 & \textbf{205.1} & \textbf{1.41$\times$} \\
+$513, 2048, 12288$   & 210.5 & 235.0 & \textbf{245.8} & 1.16$\times$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{table}
+
+\subsection{Memory Hierarchy Efficiency}
+We utilized NVIDIA Nsight Compute to analyze the L2 cache behavior. Figure \ref{fig:l2_miss} (represented by data below) illustrates the L2 cache hit rate. AdaTile's occupancy-aware tiling ensures that working sets remain resident in L2 cache longer than the aggressive streaming approach used by default heuristics.
+
+For the irregular workload ($M=127$), cuBLAS exhibited a 35\% L2 hit rate, whereas AdaTile maintained a 78\% hit rate. This reduction in global memory traffic correlates directly with the latency improvements observed.
+
+\begin{figure}[h]
+\centering
+\begin{minipage}{0.48\textwidth}
+    \centering
+    % Placeholder for a bar chart
+    \framebox[1.0\textwidth]{\rule{0pt}{120pt} \textbf{[Figure 1: L2 Cache Hit Rate Comparison]}}
+    \caption{L2 Cache Hit Rates on A100. AdaTile maintains higher locality.}
+    \label{fig:l2_miss}
+\end{minipage}
+\hfill
+\begin{minipage}{0.48\textwidth}
+    \centering
+    % Placeholder for a line chart
+    \framebox[1.0\textwidth]{\rule{0pt}{120pt} \textbf{[Figure 2: Latency vs. Batch Size]}}
+    \caption{End-to-end Latency (ms) as batch size increases.}
+    \label{fig:latency}
+\end{minipage}
+\end{figure}
+
+\subsection{Ablation Study: Swizzling}
+We disabled the XOR-swizzling module to measure its impact. On the H100 GPU, disabling swizzling resulted in a 12\% performance drop due to shared memory bank conflicts, confirming the necessity of layout optimization in the AdaTile pipeline.
+
+\section{Conclusion}
+
+In this work, we presented AdaTile, a performance portability framework for GPU acceleration. By dynamically adjusting tile dimensions based on hardware constraints and input shapes, AdaTile addresses the inefficiencies of static libraries. Our experiments show that while vendor libraries are highly optimized for standard benchmarks, AdaTile provides significant gains (up to 1.41$\times$) for the irregular tensor shapes common in modern production NLP models. Future work will extend AdaTile to support sparse matrix operations and AMD ROCm architectures.
+
+\begin{thebibliography}{9}
+
+\bibitem{vaswani2017attention}
+Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., ... \& Polosukhin, I. (2017).
+\textit{Attention is all you need}.
+Advances in neural information processing systems, 30.
+
+\bibitem{nvidia2022hopper}
+NVIDIA Corporation. (2022).
+\textit{NVIDIA H100 Tensor Core GPU Architecture}.
+Whitepaper.
+
+\bibitem{tillet2019triton}
+Tillet, P., Kung, H. T., \& Cox, D. (2019).
+\textit{Triton: an intermediate language and compiler for tiled neural network computations}.
+Proceedings of the 3rd ACM SIGPLAN International Workshop on Machine Learning and Programming Languages.
+
+\end{thebibliography}
+
+\end{document}
+```

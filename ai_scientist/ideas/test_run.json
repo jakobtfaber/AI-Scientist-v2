@@ -1,0 +1,21 @@
+[
+  {
+    "Name": "mnist_lr_stability",
+    "Title": "The Impact of Learning Rate on MNIST Training Stability",
+    "Experiment": "Run MNIST training with varying learning rates (e.g., 0.001, 0.01, 0.1, 1.0, 5.0) and observe loss divergence.",
+    "Interestingness": 5,
+    "Heap": {},
+    "Experiments": [
+      "Train baseline SimpleCNN on MNIST with LR=0.01.",
+      "Train with high LR=1.0 and LR=5.0 to show instability.",
+      "Train with low LR=0.0001 to show slow convergence."
+    ],
+    "Abstract": "This study aims to empirically analyze the effect of varying learning rates on the training dynamics of a Simple CNN trained on the MNIST dataset. We hypothesize that there exists a critical threshold beyond which training becomes unstable or diverges. By systematically sweeping learning rates and observing loss landscapes and accuracy metrics, we seek to characterize the relationship between learning rate magnitude and optimization stability.",
+    "Related Work": "Optimizers and learning rate schedules are key to deep learning. Previous work like 'Cyclical Learning Rates' (Smith, 2017) explored dynamic rates. This work focuses on finding stability thresholds for simple baselines.",
+    "Short Hypothesis": "Extreme learning rates cause divergence or slow convergence in MNIST training.",
+    "Risk Factors and Limitations": [
+        "MNIST is a simple dataset, so findings might not generalize to complex tasks.",
+        "The model is a simple CNN, which is less stable than ResNets."
+    ]
+  }
+]
