@@ -1104,12 +1104,36 @@ Ensure proper citation usage:
             )
 
             # 2nd run:
+            # DEBUG: Save response to check format
+            debug_reflection_file = osp.join(base_folder, f"reflection_{i+1}_response.txt")
+            with open(debug_reflection_file, "w") as f:
+                f.write(f"Response length: {len(reflection_response)}\n")
+                f.write(f"Contains ```latex: {'YES' if '```latex' in reflection_response else 'NO'}\n")
+                f.write(f"Contains ```: {'YES' if '```' in reflection_response else 'NO'}\n")
+                f.write(f"\n{'='*80}\nFull response:\n{'='*80}\n{reflection_response}")
+            
             reflection_code_match = re.search(
                 r"```latex(.*?)```", reflection_response, re.DOTALL
             )
             if reflection_code_match:
                 reflected_latex_code = reflection_code_match.group(1).strip()
-                if reflected_latex_code != current_latex:
+            else:
+                # Fallback: try to extract without latex marker
+                generic_match = re.search(r"```(.*?)```", reflection_response, re.DOTALL)
+                if generic_match:
+                    reflected_latex_code = generic_match.group(1).strip()
+                    print(f"Found generic code block in reflection {i+1}")
+                else:
+                    # Last resort: use entire response if it looks like LaTeX
+                    if "\\documentclass" in reflection_response or "\\begin{document}" in reflection_response:
+                        reflected_latex_code = reflection_response.strip()
+                        print(f"Using full response as LaTeX (no code blocks) in reflection {i+1}")
+                    else:
+                        print(f"No valid LaTeX code block found in reflection step {i+1}.")
+                        print(f"Response length: {len(reflection_response)}, saved to {debug_reflection_file}")
+                        break
+            
+            if reflected_latex_code:
                     final_text = reflected_latex_code
                     cleanup_map = {
                         "</end": r"\\end",
