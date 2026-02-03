@@ -200,3 +200,11 @@ The tree search component implemented within the `ai_scientist` directory is bui
 
 [![Star History Chart](https://api.star-history.com/svg?repos=SakanaAI/AI-Scientist-v2&type=Date)](https://star-history.com/#SakanaAI/AI-Scientist-v2&Date)
 
+## ⚖️ License & Responsible Use
+
+This project is licensed under **The AI Scientist Source Code License** (a derivative of the Responsible AI License). 
+
+**Mandatory Disclosure:** By using this code, you are legally bound to clearly and prominently disclose the use of AI in any resulting scientific manuscripts or papers. 
+
+We recommend the following attribution in your paper's Abstract or Methods section:
+> "This manuscript was autonomously generated using [The AI Scientist](https://github.com/SakanaAI/AI-Scientist)."
