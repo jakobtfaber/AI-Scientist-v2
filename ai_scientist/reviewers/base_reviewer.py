@@ -107,7 +107,7 @@ class BaseReviewer(ABC):
         
         client, model = create_client(self.model)
         
-        response = get_response_from_llm(
+        response, _ = get_response_from_llm(
             prompt=prompt,
             client=client,
             model=model,
