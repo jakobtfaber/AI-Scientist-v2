@@ -21,6 +21,11 @@ from ai_scientist.tools.semantic_scholar import search_for_papers
 from ai_scientist.perform_vlm_review import generate_vlm_img_review
 from ai_scientist.vlm import create_client as create_vlm_client
 
+# --- NEW: Validation system imports
+from ai_scientist.data_loader import load_experiment_data, format_data_for_prompt
+from ai_scientist.validators.consistency_checker import ConsistencyChecker
+from ai_scientist.reviewers.review_pipeline import ReviewPipeline
+
 
 def remove_accents_and_clean(s):
     # print("Original:", s)
@@ -649,6 +654,53 @@ def perform_writeup(
         updated_latex_code = latex_code_match.group(1).strip()
         with open(writeup_file, "w") as f:
             f.write(updated_latex_code)
+
+        # --- NEW: Run validation checks on initial writeup
+        print(\"[VALIDATION] Running consistency and review checks...\")
+        validation_feedback = \"\"
+        try:
+            # Load experimental data for validation
+            exp_data = load_experiment_data(base_folder)
+            
+            # 1. Consistency check
+            checker = ConsistencyChecker(
+                latex_path=writeup_file,
+                data=exp_data,
+                figures_dir=figures_dir
+            )
+            validation_report_obj = checker.run_all_checks()
+            
+            if validation_report_obj.has_critical_errors():
+                print(f\"[VALIDATION] ⚠️ Found {len(validation_report_obj.critical_issues)} critical consistency issues!\")
+                critical_summary = \"\\n\".join([
+                    f\"  - {result.claim.text[:80]}... (Reason: {result.reason})\"
+                    for result in validation_report_obj.critical_issues
+                ])
+                validation_feedback += f\"\\n\\n**CRITICAL CONSISTENCY ISSUES:**\\n{critical_summary}\\n\"
+            else:
+                print(\"[VALIDATION] ✓ No critical consistency issues found\")
+            
+            # 2. Multi-agent review (only if relatively clean)
+            if len(validation_report_obj.critical_issues) <= 2:
+                print(\"[VALIDATION] Running multi-agent review...\")
+                pipeline = ReviewPipeline(model=big_model)
+                aggregated_review = pipeline.review_paper(
+                    paper_draft=updated_latex_code,
+                    data=exp_data,
+                    code_path=aggregator_path if osp.exists(aggregator_path) else None,
+                    figures_dir=figures_dir
+                )
+                
+                if aggregated_review.has_critical_issues():
+                    print(f\"[VALIDATION] ⚠️ Multi-agent review found {len(aggregated_review.critical_issues)} critical issues!\")
+                    review_summary = aggregated_review.summary()
+                    validation_feedback += f\"\\n\\n**MULTI-AGENT REVIEW FINDINGS:**\\n{review_summary[:1000]}...\\n\"
+                else:
+                    print(\"[VALIDATION] ✓ Multi-agent review passed\")
+            
+        except Exception:
+            print(\"[VALIDATION] Exception during validation (continuing anyway):\")
+            print(traceback.format_exc())
 
         # Multiple reflection loops on the final LaTeX
         for i in range(n_writeup_reflections):
