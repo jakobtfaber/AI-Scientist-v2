@@ -742,7 +742,7 @@ def filter_experiment_summaries(exp_summaries, step_name):
     return filtered_summaries
 
 
-def gather_citations(base_folder, num_cite_rounds=20, small_model="gpt-4o-2024-05-13"):
+def gather_citations(base_folder, num_cite_rounds=20, small_model="gpt-4o"):
     """
     Gather citations for a paper, with ability to resume from previous progress.
 
@@ -859,7 +859,7 @@ def perform_writeup(
     citations_text=None,
     no_writing=False,
     num_cite_rounds=20,
-    small_model="gpt-4o-2024-05-13",
+    small_model="gpt-4o",
     big_model="o1-2024-12-17",
     n_writeup_reflections=3,
     page_limit=4,
@@ -949,6 +949,8 @@ def perform_writeup(
                 f.write(content)
 
         # Generate VLM-based descriptions
+        vlm_client = None
+        vlm_model = None
         try:
             vlm_client, vlm_model = create_vlm_client(small_model)
             desc_map = {}
@@ -1014,10 +1016,30 @@ def perform_writeup(
             print("ERROR: Response is None!")
         print(f"{'='*80}\n")
 
+        # Extract LaTeX from initial writeup response
+        # Try ```latex blocks first (expected format)
         latex_code_match = re.search(r"```latex(.*?)```", response, re.DOTALL)
-        if not latex_code_match:
-            return False
-        updated_latex_code = latex_code_match.group(1).strip()
+        if latex_code_match:
+            updated_latex_code = latex_code_match.group(1).strip()
+        else:
+            # Gemini may not wrap in ```latex blocks
+            # Try generic code block
+            generic_match = re.search(r"```(.*?)```", response, re.DOTALL)
+            if generic_match:
+                content = generic_match.group(1).strip()
+                # Remove possible language marker from start
+                lines = content.split("\n")
+                if lines and lines[0].strip().lower() in ("tex", "latex", "plaintex"):
+                    content = "\n".join(lines[1:])
+                updated_latex_code = content.strip()
+                print(f"[yellow]Extracted from generic code block in initial generation[/yellow]")
+            elif "\\documentclass" in response or "\\begin{document}" in response:
+                # Last resort: whole response is LaTeX
+                updated_latex_code = response.strip()
+                print(f"[yellow]Using full response as LaTeX (no code blocks) in initial generation[/yellow]")
+            else:
+                print(f"[red]No valid LaTeX found in initial generation.[/red]")
+                return False
         with open(writeup_file, "w") as f:
             f.write(updated_latex_code)
 
@@ -1040,18 +1062,23 @@ def perform_writeup(
                 base_folder, f"{osp.basename(base_folder)}_reflection{i+1}.pdf"
             )
             # Compile current version before reflection
+            # Compile current version before reflection
             print(f"[green]Compiling PDF for reflection {i+1}...[/green]")
             compile_latex(latex_folder, reflection_pdf)
 
-            review_img_cap_ref = perform_imgs_cap_ref_review(
-                vlm_client, vlm_model, reflection_pdf
-            )
-
-            # Detect duplicate figures between main text and appendix
-            analysis_duplicate_figs = detect_duplicate_figures(
-                vlm_client, vlm_model, reflection_pdf
-            )
-            print(analysis_duplicate_figs)
+            if vlm_client:
+                review_img_cap_ref = perform_imgs_cap_ref_review(
+                    vlm_client, vlm_model, reflection_pdf
+                )
+                
+                # Detect duplicate figures between main text and appendix
+                analysis_duplicate_figs = detect_duplicate_figures(
+                    vlm_client, vlm_model, reflection_pdf
+                )
+                print(analysis_duplicate_figs)
+            else:
+                review_img_cap_ref = "VLM client unavailable. No image reviews."
+                analysis_duplicate_figs = "VLM client unavailable. No duplicate analysis."
 
             # Get reflection_page_info
             reflection_page_info = get_reflection_page_info(reflection_pdf, page_limit)
@@ -1103,11 +1130,8 @@ Ensure proper citation usage:
                 print_debug=False,
             )
 
-<<<<<<< HEAD
             # 2nd run: Extract LaTeX from reflection response
             # Try ```latex blocks first (expected format)
-=======
-            # 2nd run:
             # DEBUG: Save response to check format
             debug_reflection_file = osp.join(base_folder, f"reflection_{i+1}_response.txt")
             with open(debug_reflection_file, "w") as f:
@@ -1115,27 +1139,25 @@ Ensure proper citation usage:
                 f.write(f"Contains ```latex: {'YES' if '```latex' in reflection_response else 'NO'}\n")
                 f.write(f"Contains ```: {'YES' if '```' in reflection_response else 'NO'}\n")
                 f.write(f"\n{'='*80}\nFull response:\n{'='*80}\n{reflection_response}")
-            
->>>>>>> eb90ea738524f7770ed2eff8e0eee446680932b3
+
             reflection_code_match = re.search(
                 r"```latex(.*?)```", reflection_response, re.DOTALL
             )
             if reflection_code_match:
                 reflected_latex_code = reflection_code_match.group(1).strip()
             else:
-<<<<<<< HEAD
                 # Gemini may not wrap in ```latex blocks during reflection
                 # Try generic code block
                 generic_match = re.search(r"```(.*?)```", reflection_response, re.DOTALL)
                 if generic_match:
                     content = generic_match.group(1).strip()
                     # Remove possible language marker from start
-                    lines = content.split("\\n")
+                    lines = content.split("\n")
                     if lines and lines[0].strip().lower() in ("tex", "latex", "plaintex"):
-                        content = "\\n".join(lines[1:])
+                        content = "\n".join(lines[1:])
                     reflected_latex_code = content.strip()
                     print(f"[yellow]Extracted from generic code block in reflection {i+1}[/yellow]")
-                elif "\\\\documentclass" in reflection_response or "\\\\begin{document}" in reflection_response:
+                elif "\\documentclass" in reflection_response or "\\begin{document}" in reflection_response:
                     # Last resort: whole response is LaTeX
                     reflected_latex_code = reflection_response.strip()
                     print(f"[yellow]Using full response as LaTeX (no code blocks) in reflection {i+1}[/yellow]")
@@ -1146,24 +1168,6 @@ Ensure proper citation usage:
             # Process the extracted LaTeX
             if reflected_latex_code and reflected_latex_code != current_latex:
                 if reflected_latex_code != current_latex:
-=======
-                # Fallback: try to extract without latex marker
-                generic_match = re.search(r"```(.*?)```", reflection_response, re.DOTALL)
-                if generic_match:
-                    reflected_latex_code = generic_match.group(1).strip()
-                    print(f"Found generic code block in reflection {i+1}")
-                else:
-                    # Last resort: use entire response if it looks like LaTeX
-                    if "\\documentclass" in reflection_response or "\\begin{document}" in reflection_response:
-                        reflected_latex_code = reflection_response.strip()
-                        print(f"Using full response as LaTeX (no code blocks) in reflection {i+1}")
-                    else:
-                        print(f"No valid LaTeX code block found in reflection step {i+1}.")
-                        print(f"Response length: {len(reflection_response)}, saved to {debug_reflection_file}")
-                        break
-            
-            if reflected_latex_code:
->>>>>>> eb90ea738524f7770ed2eff8e0eee446680932b3
                     final_text = reflected_latex_code
                     cleanup_map = {
                         "</end": r"\\end",
@@ -1305,17 +1309,11 @@ USE MINIMAL EDITS TO OPTIMIZE THE PAGE LIMIT USAGE."""
     except Exception:
         print("EXCEPTION in perform_writeup:")
         print(traceback.format_exc())
-<<<<<<< HEAD
-        exception_log = osp.join(base_folder, "writeup_exception.log")
-        with open(exception_log, "w") as f:
-            f.write(traceback.format_exc())
-=======
         # Log to file for debugging
         exception_log = osp.join(base_folder, "writeup_exception.log")
         with open(exception_log, "w") as f:
             f.write(traceback.format_exc())
         print(f"Exception details saved to: {exception_log}")
->>>>>>> 877cbe1fb2461e5f18a49286bb2b0adf5de279e7
         return False
 
 

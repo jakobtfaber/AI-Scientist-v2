@@ -456,7 +456,7 @@ def perform_writeup(
     base_folder,
     no_writing=False,
     num_cite_rounds=20,
-    small_model="gpt-4o-2024-05-13",
+    small_model="gpt-4o",
     big_model="o1-2024-12-17",
     n_writeup_reflections=3,
     page_limit=8,
