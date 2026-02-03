@@ -15,7 +15,7 @@ try:
     result = perform_writeup(
         base_folder='/data/ai-tools/SakanaAI/AI-Scientist-v2/experiments/2026-02-02_23-55-13_gpu_ffa_pulsar_attempt_0',
         small_model="gemini-2.5-flash",
-        big_model="gemini-2.5-pro",
+        big_model="gemini-3-pro-preview",
         n_writeup_reflections=3,
         page_limit=6,
     )
