@@ -350,6 +350,119 @@ class ConsistencyChecker:
         
         return report
     
+    def auto_correct_claims(
+        self,
+        latex_content: str,
+        failed_validations: List[ValidationResult],
+        max_fixes: int = 5
+    ) -> str:
+        """
+        Automatically rewrite failed claims in LaTeX
+        
+        Args:
+            latex_content: Original LaTeX content
+            failed_validations: List of failed validation results
+            max_fixes: Maximum number of claims to auto-fix
+            
+        Returns:
+            Updated LaTeX content with corrections
+        """
+        from ai_scientist.prompt_templates import REWRITE_CLAIM_PROMPT
+        from ai_scientist.llm import get_response_from_llm, create_client
+        
+        corrected_latex = latex_content
+        fixes_applied = 0
+        
+        # Sort by severity (critical first)
+        severity_order = {"critical": 0, "major": 1, "minor": 2}
+        sorted_validations = sorted(
+            failed_validations,
+            key=lambda v: severity_order.get(v.severity, 3)
+        )
+        
+        for validation in sorted_validations[:max_fixes]:
+            if validation.severity in ["critical", "major"]:
+                logger.info(f"Auto-fixing {validation.severity} claim: {validation.claim.text[:50]}...")
+                
+                try:
+                    # Prepare data evidence as string
+                    evidence_str = json.dumps(validation.data_evidence, indent=2)
+                    
+                    # Generate rewrite prompt
+                    prompt = REWRITE_CLAIM_PROMPT.format(
+                        claim=validation.claim.text,
+                        data=evidence_str,
+                        reason=validation.reason
+                    )
+                    
+                    # Call LLM to rewrite claim
+                    client, model = create_client("gemini-2.5-flash")
+                    rewritten, _ = get_response_from_llm(
+                        prompt=prompt,
+                        client=client,
+                        model=model,
+                        system_message="You are a scientific writing assistant. Rewrite claims to accurately reflect experimental data.",
+                        print_debug=False
+                    )
+                    
+                    # Extract rewritten claim (remove markdown markers if present)
+                    rewritten_clean = rewritten.strip().strip('`"\'')
+                    
+                    # Replace in LaTeX
+                    if validation.claim.text in corrected_latex:
+                        corrected_latex = corrected_latex.replace(
+                            validation.claim.text,
+                            rewritten_clean,
+                            1  # Only replace first occurrence
+                        )
+                        fixes_applied += 1
+                        logger.info(f"✓ Fixed claim: '{rewritten_clean[:60]}...'")
+                    else:
+                        logger.warning(f"Could not find exact claim text in LaTeX for replacement")
+                        
+                except Exception as e:
+                    logger.error(f"Failed to auto-fix claim: {e}")
+                    continue
+        
+        logger.info(f"Applied {fixes_applied} automated claim fixes")
+        return corrected_latex
+    
+    def run_all_checks_with_autofix(
+        self,
+        latex_path: Optional[str] = None,
+        apply_fixes: bool = True
+    ) -> tuple[ValidationReport, Optional[str]]:
+        """
+        Run validation and optionally apply auto-fixes
+        
+        Args:
+            latex_path: Optional path to save corrected LaTeX
+            apply_fixes: Whether to apply automatic fixes
+            
+        Returns:
+            Tuple of (ValidationReport, corrected_latex_content or None)
+        """
+        # Run normal validation
+        report = self.run_all_checks()
+        
+        if not apply_fixes or not report.failed_claims:
+            return report, None
+        
+        # Apply auto-fixes
+        failed = [r for r in report.results if not r.passed]
+        corrected_latex = self.auto_correct_claims(
+            latex_content=self.latex_content,
+            failed_validations=failed
+        )
+        
+        # Optionally save corrected version
+        if latex_path:
+            with open(latex_path, 'w') as f:
+                f.write(corrected_latex)
+            logger.info(f"Saved corrected LaTeX to {latex_path}")
+        
+        return report, corrected_latex
+    
     # Helper methods
     
     def _extract_sentence(self, position: int) -> str:
