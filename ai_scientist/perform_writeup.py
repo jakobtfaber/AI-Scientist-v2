@@ -21,6 +21,11 @@ from ai_scientist.tools.semantic_scholar import search_for_papers
 from ai_scientist.perform_vlm_review import generate_vlm_img_review
 from ai_scientist.vlm import create_client as create_vlm_client
 
+# Validation system imports
+from ai_scientist.data_loader import load_experiment_data
+from ai_scientist.validators.consistency_checker import ConsistencyChecker
+from ai_scientist.reviewers.review_pipeline import ReviewPipeline
+
 # --- NEW: Validation system imports
 from ai_scientist.data_loader import load_experiment_data, format_data_for_prompt
 from ai_scientist.validators.consistency_checker import ConsistencyChecker
