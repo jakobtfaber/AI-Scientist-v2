@@ -59,9 +59,17 @@ AVAILABLE_LLMS = [
     "ollama/qwen3:8b",
     "ollama/qwen3:32b",
     "ollama/qwen3:235b",
+
+    "ollama/qwen2.5vl:8b",
+    "ollama/qwen2.5vl:32b",
+
+    "ollama/qwen3-coder:70b",
+    "ollama/qwen3-coder:480b",
+
     # Deepseek models via Ollama
     "ollama/deepseek-r1:8b",
     "ollama/deepseek-r1:32b",
+    "ollama/deepseek-r1:70b",
     "ollama/deepseek-r1:671b",
 ]
 
@@ -94,7 +102,7 @@ def get_batch_responses_from_llm(
     if model.startswith("ollama/"):
         new_msg_history = msg_history + [{"role": "user", "content": msg}]
         response = client.chat.completions.create(
-            model=model.split("/")[-1],
+            model=model.replace("ollama/", ""),
             messages=[
                 {"role": "system", "content": system_message},
                 *new_msg_history,
@@ -209,7 +217,7 @@ def get_batch_responses_from_llm(
 def make_llm_call(client, model, temperature, system_message, prompt):
     if model.startswith("ollama/"):
         return client.chat.completions.create(
-            model=model.split("/")[-1],
+            model=model.replace("ollama/", ""),
             messages=[
                 {"role": "system", "content": system_message},
                 *prompt,
@@ -305,7 +313,7 @@ def get_response_from_llm(
     elif model.startswith("ollama/"):
         new_msg_history = msg_history + [{"role": "user", "content": msg}]
         response = client.chat.completions.create(
-            model=model.split("/")[-1],
+            model=model.replace("ollama/", ""),
             messages=[
                 {"role": "system", "content": system_message},
                 *new_msg_history,
@@ -422,7 +430,7 @@ def get_response_from_llm(
                 *new_msg_history,
             ],
             temperature=temperature,
-            max_tokens=MAX_NUM_TOKENS,
+            max_tokens=GEMINI_MAX_TOKENS,  # Use higher limit for Gemini
             n=1,
         )
         content = response.choices[0].message.content
@@ -530,6 +538,8 @@ def create_client(model) -> tuple[Any, str]:
             openai.OpenAI(
                 api_key=os.environ["GEMINI_API_KEY"],
                 base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                timeout=300.0,  # 5 minute timeout for large prompts
+                max_retries=2,
             ),
             model,
         )
