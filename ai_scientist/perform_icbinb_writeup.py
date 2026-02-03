@@ -1190,9 +1190,16 @@ Ensure proper citation usage:
                 break
             # Get new reflection_page_info
             reflection_page_info = get_reflection_page_info(reflection_pdf, page_limit)
-            review_img_selection = perform_imgs_cap_ref_review_selection(
-                vlm_client, vlm_model, reflection_pdf, reflection_page_info
-            )
+            if vlm_client:
+                try:
+                    review_img_selection = perform_imgs_cap_ref_review_selection(
+                        vlm_client, vlm_model, reflection_pdf, reflection_page_info
+                    )
+                except Exception as e:
+                    print(f"VLM review failed: {e}")
+                    review_img_selection = "VLM client unavailable. No image selection review."
+            else:
+                review_img_selection = "VLM client unavailable. No image selection review."
             img_reflection_prompt = f"""Now let's reflect on
 The following figures are currently used in the paper: {sorted(used_figs)}
 The following figures are available in the folder but not used in the LaTeX: {sorted(unused_figs)}

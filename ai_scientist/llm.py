@@ -9,9 +9,10 @@ import backoff
 import openai
 
 MAX_NUM_TOKENS = 4096
-GEMINI_MAX_TOKENS = 8192  # Gemini models support higher output token limits
+GEMINI_MAX_TOKENS = 32768  # Increased to prevent truncation of full papers
 
 AVAILABLE_LLMS = [
+    "gemini-3-flash",
     "claude-3-5-sonnet-20240620",
     "claude-3-5-sonnet-20241022",
     # OpenAI models
@@ -49,6 +50,11 @@ AVAILABLE_LLMS = [
     "vertex_ai/claude-3-sonnet@20240229",
     "vertex_ai/claude-3-haiku@20240307",
     # Google Gemini models
+    "gemini-1.5-pro",
+    "gemini-1.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-3-flash",
     "gemini-2.0-flash",
     "gemini-2.5-flash-preview-04-17",
     "gemini-2.5-pro-preview-03-25",
@@ -478,70 +484,152 @@ def extract_json_between_markers(llm_output: str) -> dict | None:
     return None  # No valid JSON found
 
 
-def create_client(model) -> tuple[Any, str]:
-    if model.startswith("claude-"):
-        print(f"Using Anthropic API with model {model}.")
-        return anthropic.Anthropic(), model
-    elif model.startswith("bedrock") and "claude" in model:
-        client_model = model.split("/")[-1]
-        print(f"Using Amazon Bedrock with model {client_model}.")
-        return anthropic.AnthropicBedrock(), client_model
-    elif model.startswith("vertex_ai") and "claude" in model:
-        client_model = model.split("/")[-1]
-        print(f"Using Vertex AI with model {client_model}.")
-        return anthropic.AnthropicVertex(), client_model
-    elif model.startswith("ollama/"):
-        print(f"Using Ollama with model {model}.")
-        return openai.OpenAI(
-            api_key=os.environ.get("OLLAMA_API_KEY", ""),
-            base_url="http://localhost:11434/v1",
-        ), model
-    elif "gpt" in model:
-        print(f"Using OpenAI API with model {model}.")
-        return openai.OpenAI(), model
-    elif "o1" in model or "o3" in model:
-        print(f"Using OpenAI API with model {model}.")
-        return openai.OpenAI(), model
-    elif model == "deepseek-coder-v2-0724":
-        print(f"Using OpenAI API with {model}.")
+
+class GeminiNativeClient:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.chat = self
+        self.completions = self
+
+    def create(self, model, messages, **kwargs):
+        # Extract system message if present
+        system_instruction = None
+        contents = []
+        
+        for msg in messages:
+            role = msg["role"]
+            content = msg["content"]
+            
+            if role == "system":
+                system_instruction = {"parts": [{"text": content}]}
+            elif role == "user":
+                contents.append({"role": "user", "parts": [{"text": content}]})
+            elif role == "assistant":
+                contents.append({"role": "model", "parts": [{"text": content}]})
+        
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
+        headers = {"Content-Type": "application/json"}
+        payload = {"contents": contents}
+        
+        if system_instruction:
+            payload["systemInstruction"] = system_instruction
+            
+        payload["safetySettings"] = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+        ]
+            
+        import requests
+        import json
+        
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            response_json = response.json()
+            
+            # extract content
+            try:
+                text_content = response_json["candidates"][0]["content"]["parts"][0]["text"]
+            except (KeyError, IndexError):
+                text_content = "" # Default or handle error
+                print(f"DEBUG: Unknown Gemini response format: {response.text}")
+
+            # Mock OpenAI response object structure
+            class MockMessage:
+                def __init__(self, content):
+                    self.content = content
+
+            class MockChoice:
+                def __init__(self, message):
+                    self.message = message
+
+            class MockUsage:
+                def __init__(self):
+                    self.completion_tokens_details = None
+                    self.completion_tokens = 0
+                    self.prompt_tokens = 0
+                    self.total_tokens = 0
+
+            class MockResponse:
+                def __init__(self, content, model_name):
+                    self.choices = [MockChoice(MockMessage(content))]
+                    self.model = model_name
+                    self.usage = MockUsage()
+                    import time
+                    self.created = int(time.time())
+                    self.id = "mock-id-gemini"
+            
+            return MockResponse(text_content, model)
+
+        except Exception as e:
+            print(f"Gemini Native API Error: {e}")
+            if 'response' in locals():
+                 print(f"Response text: {response.text}")
+            raise e
+
+def create_client(model):
+    print(f"Creating client with model: {model}...")
+    if 'gpt' in model:
         return (
             openai.OpenAI(
-                api_key=os.environ["DEEPSEEK_API_KEY"],
-                base_url="https://api.deepseek.com",
+                api_key=os.environ["OPENAI_API_KEY"],
             ),
             model,
         )
-    elif model == "deepcoder-14b":
-        print(f"Using HuggingFace API with {model}.")
-        # Using OpenAI client with HuggingFace API
-        if "HUGGINGFACE_API_KEY" not in os.environ:
-            raise ValueError("HUGGINGFACE_API_KEY environment variable not set")
+    elif 'claude' in model:
         return (
-            openai.OpenAI(
-                api_key=os.environ["HUGGINGFACE_API_KEY"],
-                base_url="https://api-inference.huggingface.co/models/agentica-org/DeepCoder-14B-Preview",
+            anthropic.Anthropic(
+                api_key=os.environ["ANTHROPIC_API_KEY"],
             ),
             model,
         )
-    elif model == "llama3.1-405b":
-        print(f"Using OpenAI API with {model}.")
+    elif 'bedrock' in model:
         return (
-            openai.OpenAI(
-                api_key=os.environ["OPENROUTER_API_KEY"],
-                base_url="https://openrouter.ai/api/v1",
+            anthropic.AnthropicBedrock(
+                aws_access_key=os.environ["AWS_ACCESS_KEY_ID"],
+                aws_secret_key=os.environ["AWS_SECRET_ACCESS_KEY"],
+                aws_region=os.environ["AWS_REGION_NAME"],
             ),
-            "meta-llama/llama-3.1-405b-instruct",
+            model.replace('bedrock/', ''),
+        )
+    elif 'vertex_ai' in model:
+        return (
+            anthropic.AnthropicVertex(
+                project_id=os.environ["VERTEX_PROJECT_ID"],
+                region=os.environ["VERTEX_REGION"],
+            ),
+            model.replace('vertex_ai/', ''),
         )
     elif 'gemini' in model:
-        print(f"Using OpenAI API with {model}.")
+        # Native Client
+        try:
+            with open(os.path.expanduser("~/.gemini_key"), "r") as f:
+                key = f.read().strip()
+        except Exception:
+            key = os.environ.get("GEMINI_API_KEY")
+            
+        print(f"DEBUG: GEMINI_API_KEY used in llm.py: {key[:10]}...")
+        return (
+            GeminiNativeClient(
+                api_key=key
+            ),
+            model
+        )
+    elif 'deepseek' in model:
+         return (
+             openai.OpenAI(
+                 api_key=os.environ["DEEPSEEK_API_KEY"],
+                 base_url="https://api.deepseek.com"
+             ),
+             model
+         )
+    else:
         return (
             openai.OpenAI(
-                api_key=os.environ["GEMINI_API_KEY"],
-                base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
-                timeout=300.0,  # 5 minute timeout for large prompts
-                max_retries=2,
+                base_url="http://localhost:11434/v1",
+                api_key="ollama",
             ),
             model,
         )
-    else:
-        raise ValueError(f"Model {model} not supported.")

@@ -11,6 +11,13 @@ from ai_scientist.utils.token_tracker import track_token_usage
 MAX_NUM_TOKENS = 4096
 
 AVAILABLE_VLMS = [
+    "gemini-1.5-pro",
+    "gemini-1.5-flash",
+    "gemini-2.5-pro",
+    "gemini-2.5-flash",
+    "gemini-3-flash",
+    "gemini-2.0-flash",
+    "gpt-4o",
     "gpt-4o-2024-05-13",
     "gpt-4o-2024-08-06",
     "gpt-4o-2024-11-20",
@@ -104,7 +111,8 @@ def make_vlm_call(client, model, temperature, system_message, prompt):
             temperature=temperature,
             max_tokens=MAX_NUM_TOKENS,
         )
-    elif "gpt" in model:
+    else:
+        # Fallback to standard OpenAI client call for compatible models (e.g. Gemini)
         return client.chat.completions.create(
             model=model,
             messages=[
@@ -114,8 +122,6 @@ def make_vlm_call(client, model, temperature, system_message, prompt):
             temperature=temperature,
             max_tokens=MAX_NUM_TOKENS,
         )
-    else:
-        raise ValueError(f"Model {model} not supported.")
 
 
 def prepare_vlm_prompt(msg, image_paths, max_images):
@@ -192,25 +198,143 @@ def get_response_from_vlm(
     return content, new_msg_history
 
 
+class GeminiNativeVLMClient:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.chat = self
+        self.completions = self
+
+    def create(self, model, messages, **kwargs):
+        contents = []
+        system_instruction = None
+
+        for msg in messages:
+            role = msg["role"]
+            content = msg["content"]
+            parts = []
+
+            if role == "system":
+                # System prompting for VLM
+                if isinstance(content, str):
+                    system_instruction = {"parts": [{"text": content}]}
+                continue 
+            
+            gemini_role = "user" if role == "user" else "model"
+
+            if isinstance(content, str):
+                parts.append({"text": content})
+            elif isinstance(content, list):
+                for item in content:
+                    if item["type"] == "text":
+                        parts.append({"text": item["text"]})
+                    elif item["type"] == "image_url":
+                        image_url = item["image_url"]["url"]
+                        # Extract mime_type and base64 data
+                        # Format: data:image/jpeg;base64,.....
+                        if "base64," in image_url:
+                            header, b64_data = image_url.split("base64,")
+                            mime_type = header.split(":")[1].split(";")[0]
+                            parts.append({
+                                "inline_data": {
+                                    "mime_type": mime_type,
+                                    "data": b64_data
+                                }
+                            })
+                        else:
+                             parts.append({"text": f"[Image URL not supported in native mode: {image_url}]"})
+
+            if parts:
+                contents.append({"role": gemini_role, "parts": parts})
+
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
+        headers = {"Content-Type": "application/json"}
+        payload = {"contents": contents}
+        if system_instruction:
+            payload["systemInstruction"] = system_instruction
+
+        payload["safetySettings"] = [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+            {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"}
+        ]
+            
+        import requests
+        try:
+            response = requests.post(url, headers=headers, json=payload)
+            response.raise_for_status()
+            response_json = response.json()
+            
+            try:
+                # Handle cases where content is present
+                if "content" in response_json["candidates"][0] and "parts" in response_json["candidates"][0]["content"]:
+                    text_content = response_json["candidates"][0]["content"]["parts"][0]["text"]
+                else:
+                    # Handle empty content (e.g. safety block or just empty)
+                    finish_reason = response_json["candidates"][0].get("finishReason", "UNKNOWN")
+                    print(f"DEBUG: Gemini VLM returned empty content. Finish Reason: {finish_reason}")
+                    text_content = "" 
+            except (KeyError, IndexError):
+                text_content = ""
+                print(f"DEBUG: Unknown Gemini VLM response: {response.text}")
+
+            class MockMessage:
+                def __init__(self, content):
+                    self.content = content
+
+            class MockChoice:
+                def __init__(self, message):
+                    self.message = message
+
+            class MockUsage:
+                def __init__(self):
+                    self.completion_tokens_details = None
+                    self.completion_tokens = 0
+                    self.prompt_tokens = 0
+                    self.total_tokens = 0
+
+            class MockResponse:
+                def __init__(self, content, model_name):
+                    self.choices = [MockChoice(MockMessage(content))]
+                    self.model = model_name
+                    self.usage = MockUsage()
+                    import time
+                    self.created = int(time.time())
+                    self.id = "mock-id-gemini"
+            
+            return MockResponse(text_content, model)
+
+        except Exception as e:
+            print(f"Gemini Native VLM Error: {e}")
+            if 'response' in locals():
+                 print(f"Response text: {response.text}")
+            raise e
+
 def create_client(model: str) -> tuple[Any, str]:
     """Create client for vision-language model."""
-    if model in [
-        "gpt-4o-2024-05-13",
-        "gpt-4o-2024-08-06",
-        "gpt-4o-2024-11-20",
-        "gpt-4o-mini-2024-07-18",
-        "o3-mini",
-    ]:
+    if "ollama/" in model:
+        print(f"Using Ollama with model {model}.")
+        return openai.OpenAI(
+            api_key="ollama",
+            base_url="http://localhost:11434/v1",
+        ), model.replace("ollama/", "")
+    elif "gpt" in model:
         print(f"Using OpenAI API with model {model}.")
         return openai.OpenAI(), model
-    elif model.startswith("ollama/"):
-        print(f"Using Ollama API with model {model}.")
-        return openai.OpenAI(
-            api_key=os.environ.get("OLLAMA_API_KEY", ""),
-            base_url="http://localhost:11434/v1"
+    elif "gemini" in model:
+        # Native Client for VLMs
+        try:
+            with open(os.path.expanduser("~/.gemini_key"), "r") as f:
+                key = f.read().strip()
+        except Exception:
+            key = os.environ.get("GEMINI_API_KEY")
+
+        return GeminiNativeVLMClient(
+            api_key=key
         ), model
     else:
-        raise ValueError(f"Model {model} not supported.")
+        print(f"Using OpenAI API with model {model}.")
+        return openai.OpenAI(), model
 
 
 def extract_json_between_markers(llm_output: str) -> dict | None:
