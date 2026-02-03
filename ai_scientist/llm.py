@@ -9,6 +9,7 @@ import backoff
 import openai
 
 MAX_NUM_TOKENS = 4096
+GEMINI_MAX_TOKENS = 8192  # Gemini models support higher output token limits
 
 AVAILABLE_LLMS = [
     "claude-3-5-sonnet-20240620",
@@ -429,7 +430,7 @@ def get_response_from_llm(
                 *new_msg_history,
             ],
             temperature=temperature,
-            max_tokens=MAX_NUM_TOKENS,
+            max_tokens=GEMINI_MAX_TOKENS,  # Use higher limit for Gemini
             n=1,
         )
         content = response.choices[0].message.content
@@ -537,6 +538,8 @@ def create_client(model) -> tuple[Any, str]:
             openai.OpenAI(
                 api_key=os.environ["GEMINI_API_KEY"],
                 base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                timeout=300.0,  # 5 minute timeout for large prompts
+                max_retries=2,
             ),
             model,
         )

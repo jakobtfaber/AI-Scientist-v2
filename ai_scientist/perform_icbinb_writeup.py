@@ -1002,6 +1002,18 @@ def perform_writeup(
             print_debug=False,
         )
 
+        # DEBUG: Print response info
+        print(f"\n{'='*80}")
+        print(f"DEBUG: Got response from {big_client_model}")
+        print(f"Response type: {type(response)}")
+        print(f"Response length: {len(response) if response else 'None'}")
+        if response:
+            print(f"First 300 chars: {response[:300]}...")
+            print(f"Contains ```latex: {'YES' if '```latex' in response else 'NO'}")
+        else:
+            print("ERROR: Response is None!")
+        print(f"{'='*80}\n")
+
         latex_code_match = re.search(r"```latex(.*?)```", response, re.DOTALL)
         if not latex_code_match:
             return False
@@ -1239,6 +1251,11 @@ USE MINIMAL EDITS TO OPTIMIZE THE PAGE LIMIT USAGE."""
     except Exception:
         print("EXCEPTION in perform_writeup:")
         print(traceback.format_exc())
+        # Log to file for debugging
+        exception_log = osp.join(base_folder, "writeup_exception.log")
+        with open(exception_log, "w") as f:
+            f.write(traceback.format_exc())
+        print(f"Exception details saved to: {exception_log}")
         return False
 
 
