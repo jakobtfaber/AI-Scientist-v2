@@ -1091,12 +1091,35 @@ Ensure proper citation usage:
                 print_debug=False,
             )
 
-            # 2nd run:
+            # 2nd run: Extract LaTeX from reflection response
+            # Try ```latex blocks first (expected format)
             reflection_code_match = re.search(
                 r"```latex(.*?)```", reflection_response, re.DOTALL
             )
             if reflection_code_match:
                 reflected_latex_code = reflection_code_match.group(1).strip()
+            else:
+                # Gemini may not wrap in ```latex blocks during reflection
+                # Try generic code block
+                generic_match = re.search(r"```(.*?)```", reflection_response, re.DOTALL)
+                if generic_match:
+                    content = generic_match.group(1).strip()
+                    # Remove possible language marker from start
+                    lines = content.split("\\n")
+                    if lines and lines[0].strip().lower() in ("tex", "latex", "plaintex"):
+                        content = "\\n".join(lines[1:])
+                    reflected_latex_code = content.strip()
+                    print(f"[yellow]Extracted from generic code block in reflection {i+1}[/yellow]")
+                elif "\\\\documentclass" in reflection_response or "\\\\begin{document}" in reflection_response:
+                    # Last resort: whole response is LaTeX
+                    reflected_latex_code = reflection_response.strip()
+                    print(f"[yellow]Using full response as LaTeX (no code blocks) in reflection {i+1}[/yellow]")
+                else:
+                    print(f"[red]No valid LaTeX found in reflection step {i+1}.[/red]")
+                    break
+            
+            # Process the extracted LaTeX
+            if reflected_latex_code and reflected_latex_code != current_latex:
                 if reflected_latex_code != current_latex:
                     final_text = reflected_latex_code
                     cleanup_map = {
