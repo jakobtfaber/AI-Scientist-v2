@@ -9,6 +9,7 @@ import backoff
 import openai
 
 MAX_NUM_TOKENS = 4096
+GEMINI_MAX_TOKENS = 8192  # Gemini models support higher output token limits
 
 AVAILABLE_LLMS = [
     "claude-3-5-sonnet-20240620",
