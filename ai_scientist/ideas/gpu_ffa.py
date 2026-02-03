@@ -43,6 +43,7 @@ def generate_synthetic_data(num_samples=2**18, period=1024, noise_level=0.5):
 
 
 # Fast Folding Algorithm (CPU implementation)
+# CRITICAL: This implementation must remain correct (indexed addition) for valid benchmarking.
 def ffa_cpu(data, max_trial_period=2048):
     folded_signals = []
     for trial_period in range(2, max_trial_period + 1):
