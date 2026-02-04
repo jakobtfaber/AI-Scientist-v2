@@ -1638,6 +1638,55 @@ class ParallelAgent:
                             logger.info(
                                 f"Successfully extracted metrics for node {child_node.id}"
                             )
+                            
+                            # Run data quality validation on experimental data
+                            try:
+                                from ai_scientist.validators.data_quality_checker import DataQualityChecker
+                                import numpy as np
+                                
+                                # Load experiment data
+                                data_file = os.path.join(working_dir, "experiment_data.npy")
+                                if os.path.exists(data_file):
+                                    exp_data = np.load(data_file, allow_pickle=True).item()
+                                    
+                                    # Run validation
+                                    checker = DataQualityChecker(
+                                        min_samples=3,
+                                        max_cv=0.2,
+                                        use_perplexity_validation=False  # Disable for speed
+                                    )
+                                    issues = checker.validate(exp_data)
+                                    
+                                    if issues:
+                                        logger.info(f"[DATA QUALITY] {checker.get_summary()}")
+                                        
+                                        # Store validation results in node
+                                        child_node.validation_issues = [i.to_dict() for i in issues]
+                                        
+                                        # Log individual issues
+                                        for issue in issues:
+                                            if issue.severity.value == 'critical':
+                                                logger.error(f"[DATA QUALITY] {issue.check}: {issue.message}")
+                                            elif issue.severity.value == 'major':
+                                                logger.warning(f"[DATA QUALITY] {issue.check}: {issue.message}")
+                                            else:
+                                                logger.info(f"[DATA QUALITY] {issue.check}: {issue.message}")
+                                        
+                                        # Mark as buggy if critical issues found
+                                        if checker.has_critical_issues():
+                                            logger.error("Critical data quality issues found - marking node as buggy")
+                                            child_node.is_buggy = True
+                                            child_node.metric = WorstMetricValue()
+                                    else:
+                                        logger.info("[DATA QUALITY] ✓ All checks passed")
+                                        child_node.validation_issues = []
+                                else:
+                                    logger.warning(f"No experiment_data.npy found at {data_file}")
+                                    
+                            except Exception as e:
+                                logger.warning(f"Data quality validation failed: {e}")
+                                # Don't fail the entire experiment if validation fails
+
                         else:
                             child_node.metric = WorstMetricValue()
                             child_node.is_buggy = True
