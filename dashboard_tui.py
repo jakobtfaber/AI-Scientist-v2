@@ -168,17 +168,19 @@ def make_left_column():
     # Manual Grid Layout for Left Column
     layout = Layout()
     layout.split_column(
-        Layout(name="identity", size=8),
-        Layout(name="metrics", size=10), # Increased for chart
-        Layout(name="goals", size=8),
-        Layout(name="validation")
+        Layout(name="identity", size=7),  # Reduced
+        Layout(name="metrics", size=8),   # Reduced
+        Layout(name="goals", size=6),     # Reduced
+        Layout(name="validation")         # Takes remaining space
     )
     
     # Identity Panel
     grid = Table.grid(expand=True)
     grid.add_row(Text("Project:", style="bold cyan"), Text(state.title, style="white"))
-    grid.add_row(Text("Phase:", style="bold cyan"), Text(f"{state.stage} > {state.substage}", style="yellow"))
-    grid.add_row(Text("Hypothesis:", style="bold cyan"), Text(state.hypothesis[:150] + "...", style="dim white"))
+    grid.add_row(Text("Phase:", style="bold cyan"), Text(f"{state.stage}", style="yellow"))
+    # Truncate hypothesis more aggressively
+    hyp = state.hypothesis if len(state.hypothesis) < 60 else state.hypothesis[:57] + "..."
+    grid.add_row(Text("Hypothesis:", style="bold cyan"), Text(hyp, style="dim white"))
     layout["identity"].update(Panel(grid, title="[bold blue]Project Context", border_style="blue", box=box.ROUNDED))
     
     # Metrics with Chart
@@ -307,6 +309,16 @@ def update_loop():
 
     with Live(make_layout(), refresh_per_second=REFRESH_RATE, screen=True) as live:
         while True:
+            # Update research from file if needed
+            if state.experiment_dir and "Waiting" in state.research_summary:
+                 idea_file = os.path.join(state.experiment_dir, "idea.md")
+                 if os.path.exists(idea_file):
+                     try:
+                         with open(idea_file, 'r') as f:
+                             state.research_summary = f.read()
+                     except:
+                         pass
+
             with open(LOG_FILE, 'r') as f:
                 f.seek(last_pos)
                 new_data = f.read()
