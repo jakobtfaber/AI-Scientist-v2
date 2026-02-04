@@ -369,7 +369,27 @@ def generate_vlm_img_review(img, model, client):
     return img_review_json
 
 
+def validate_pdf_structure(pdf_path):
+    """Check if PDF has valid structure before parsing."""
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["pdfinfo", pdf_path],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
 def perform_imgs_cap_ref_review(client, client_model, pdf_path):
+    if not validate_pdf_structure(pdf_path):
+        print(f"Warning: PDF {pdf_path} has structural issues, skipping VLM review")
+        return {}
+
     paper_txt = load_paper(pdf_path)
     img_folder_path = os.path.join(
         os.path.dirname(pdf_path),

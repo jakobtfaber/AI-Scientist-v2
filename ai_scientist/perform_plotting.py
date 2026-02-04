@@ -133,6 +133,27 @@ def run_aggregator_script(
     return aggregator_out
 
 
+def verify_figures_exist(base_folder):
+    """Ensure all referenced figures are fully written."""
+    import time
+
+    figure_dir = os.path.join(base_folder, "figures")
+    if not os.path.exists(figure_dir):
+        return False
+
+    # Give filesystem time to sync
+    time.sleep(2)
+
+    # Check all expected figures
+    for fig in os.listdir(figure_dir):
+        if fig.endswith(".png"):
+            path = os.path.join(figure_dir, fig)
+            # Verify file is complete (not zero bytes)
+            if os.path.getsize(path) == 0:
+                return False
+    return True
+
+
 def aggregate_plots(
     base_folder: str, model: str = "gemini-3-flash-preview", n_reflections: int = 5
 ) -> None:
@@ -252,6 +273,10 @@ If you believe you are done, simply say: "I am done". Otherwise, please provide 
             print(
                 f"No new aggregator script was provided or it was identical. Reflection step {i+1} complete."
             )
+
+    # Verify figures exist before returning
+    if not verify_figures_exist(base_folder):
+        print("Warning: Some figures may be missing or incomplete.")
 
 
 def main():
