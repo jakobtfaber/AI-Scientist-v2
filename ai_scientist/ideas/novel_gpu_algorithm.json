@@ -8,7 +8,7 @@
     "Experiments": [
       "Mathematically define the Tensor-Fold operator $\\mathcal{T}(x)$ and prove its invertibility or energy conservation properties (Parseval's theorem equivalent).",
       "Implement the TFT using high-level parallel tensor operations.",
-      "Compare sensitivity against standard FFA on synthetic signals with non-Gaussian noise and complex binary orbital modulation.",
+      "Compare sensitivity against standard FFA on synthetic PULSE TRAINS (Duty Cycle < 10%, not Sines) with non-Gaussian noise.",
       "Visualize the 'TFT Spectrum' to demonstrate feature separation impossible in standard Frequency/Phase domains."
     ],
     "Risk Factors and Limitations": [

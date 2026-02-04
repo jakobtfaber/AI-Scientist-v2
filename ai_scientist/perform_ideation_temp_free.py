@@ -68,6 +68,9 @@ You have access to **SymPy** for symbolic derivation. You are encouraged to use 
 2.  Derive conservation laws or transform properties.
 3.  Prove orthogonality or invertibility of your proposed operators.
 
+**CRITICAL PHYSICAL CONSTRAINT**:
+When simulating Pulsars, you **MUST generate PULSE TRAINS** (e.g., von Mises or narrow Gaussians with < 10% duty cycle). **NEVER use simple Sine waves (`torch.sin`)**, as they are physically incorrect for pulsars and trivial to detect with FFT. Your algorithm must be sensitive to the *harmonics* of a pulse train, not just the fundamental frequency.
+
 You have access to the following tools:
 
 {tool_descriptions}
