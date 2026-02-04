@@ -1,0 +1,22 @@
+[
+  {
+    "Name": "tensor_fold_transform",
+    "Title": "The Tensor-Fold Transform: A High-Dimensional Approach to Periodic Signal Detection",
+    "Abstract": "Traditional pulsar search algorithms (FFT, FFA) project time-series data into 1D or 2D subspaces (frequency or phase). We propose a novel mathematical operator, the 'Tensor-Fold Transform' (TFT), which maps 1D time-series data into a high-dimensional tensor space representing simultaneous phase, frequency, and 'chirp' evolution. Unlike the Rolling Hough Transform or similar heuristics, the TFT is defined as a series of dense tensor contractions and atomic scatter-reductions that are natively parallel. By operating in this high-dimensional latent space, we hypothesize we can recover weak signals with complex modulation patterns (e.g., binary motion, scintillation) that are effectively invisible to standard linear transforms. We will derive the operator's properties and implement a prototype using PyTorch primitives, prioritizing signal sensitivity over raw speed.",
+    "Short Hypothesis": "Mapping 1D time-series into high-dimensional tensor representations allows for the detection of complex periodic signals that are orthogonal to the basis functions of standard FFT/FFA approaches.",
+    "Related Work": "Standard approaches (Ransom et al., Staelin) rely on efficient recursive folding or Fourier duality. Recent 'AI' approaches use black-box neural networks (CNNs) for classification but lack interpretability. The TFT differs by being a deterministic, mathematically defined transform that leverages the 'scatter-gather' paradigm of modern GPUs as a fundamental operator, akin to the relationship between the Quantum Fourier Transform and quantum gates.",
+    "Experiments": [
+      "Mathematically define the Tensor-Fold operator $\\mathcal{T}(x)$ and prove its invertibility or energy conservation properties (Parseval's theorem equivalent).",
+      "Implement the TFT using PyTorch tensor primitives (einsum, scatter_add_).",
+      "Compare sensitivity against standard FFA on synthetic signals with non-Gaussian noise and complex binary orbital modulation.",
+      "Visualize the 'TFT Spectrum' to demonstrate feature separation impossible in standard Frequency/Phase domains."
+    ],
+    "Risk Factors and Limitations": [
+      "The memory complexity of high-dimensional tensor mappings may scale poorly ($O(N^2)$ or higher), limiting input length.",
+      "The theoretical sensitivity gain might be marginal for simple, solitary pulsars compared to the highly optimized FFA.",
+      "Lack of existing theoretical framework for 'tensor-folding' makes convergence guarantees difficult to prove."
+    ],
+    "Interestingness": 10,
+    "Heap": {}
+  }
+]
