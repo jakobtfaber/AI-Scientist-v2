@@ -41,7 +41,11 @@ class DashboardState:
         self.last_update = datetime.now()
         self.research_summary = "*Waiting for Perplexity research...*"
         self.validations = deque(maxlen=10)  # (Time, Check, Result, Message)
-        self.logs = deque(maxlen=15)
+        self.logs = deque(maxlen=30) # Increased log buffer
+        
+        # Identity
+        self.title = "Unknown Experiment"
+        self.hypothesis = "Waiting for definition..."
         
         # Determine start time from log file creation if possible, otherwise now
         if os.path.exists(LOG_FILE):
@@ -109,16 +113,25 @@ state = DashboardState()
 def make_header():
     grid = Table.grid(expand=True)
     grid.add_column(justify="left", ratio=1)
-    grid.add_column(justify="center", ratio=1)
     grid.add_column(justify="right", ratio=1)
     
     elapsed = datetime.now() - state.start_time
     elapsed_str = str(elapsed).split('.')[0]
     
-    title = Text(" 🔬 The AI Scientist ", style="bold white on blue")
-    status = Text(f"Status: RUNNING | Time: {elapsed_str}", style="bold green")
+    # Determine Status Color
+    if "complete" in state.stage.lower():
+        color = "green"
+        status_txt = "COMPLETE"
+    else:
+        color = "blue"
+        status_txt = "RUNNING"
+        
+    title_text = Text(" 🔬 The AI Scientist", style=f"bold white on {color}")
+    annot = Text(f" {state.title[:60]}... ", style="italic white on black")
     
-    grid.add_row(title, status, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    status_line = Text(f"{status_txt} | Runtime: {elapsed_str} ", style=f"bold {color}")
+    
+    grid.add_row(title_text + annot, status_line)
     return Panel(grid, style="white on black", box=box.HEAVY)
 
 def make_status_panel():
@@ -162,22 +175,21 @@ def make_left_column():
     # Manual Grid Layout for Left Column
     layout = Layout()
     layout.split_column(
-        Layout(name="phase", size=6),
+        Layout(name="identity", size=8),
         Layout(name="metrics", size=6),
         Layout(name="goals", size=8),
         Layout(name="validation")
     )
     
-    # Phase
-    table = Table(box=None, expand=True, show_header=False)
-    table.add_column("Metric", style="cyan")
-    table.add_column("Value", style="bold white")
-    table.add_row("Current Stage", state.stage)
-    table.add_row("Sub-stage", state.substage)
-    layout["phase"].update(Panel(table, title="[bold blue]Experiment Phase", border_style="blue", box=box.ROUNDED))
+    # Identity Panel
+    grid = Table.grid(expand=True)
+    grid.add_row(Text("Project:", style="bold cyan"), Text(state.title, style="white"))
+    grid.add_row(Text("Phase:", style="bold cyan"), Text(f"{state.stage} > {state.substage}", style="yellow"))
+    grid.add_row(Text("Hypothesis:", style="bold cyan"), Text(state.hypothesis[:150] + "...", style="dim white"))
+    layout["identity"].update(Panel(grid, title="[bold blue]Project Context", border_style="blue", box=box.ROUNDED))
     
     # Metrics
-    m_table = Table(box=None, expand=True, show_header=False)
+    m_table = Table(box=None, expand=True)
     m_table.add_column("Metric", style="yellow")
     m_table.add_column("Value", style="bold yellow")
     m_table.add_row("CPU Runtime", state.metrics["CPU"])
@@ -251,8 +263,17 @@ def make_layout():
     
     return layout
 
+# Variables for multi-line capture
+research_buffer = []
+capturing_research = False
+metrics_buffer = []  # Unused, but kept for pattern
+goals_buffer = []
+capturing_goals = False
+title_buffer = False
+hypothesis_buffer = False
+
 def update_loop():
-    global capturing_research, capturing_goals
+    global capturing_research, capturing_goals, title_buffer, hypothesis_buffer
     
     # Initial full scan to get current state
     last_pos = 0
@@ -264,7 +285,7 @@ def update_loop():
             for line in content.splitlines():
                 state.add_log(line)
                 # Run the state update logic on historical lines too
-                _process_line_state(line.strip())
+                _process_line_state(line.strip(), line)
 
     with Live(make_layout(), refresh_per_second=REFRESH_RATE, screen=True) as live:
         while True:
@@ -276,14 +297,30 @@ def update_loop():
             if new_data:
                 for line in new_data.splitlines():
                     state.add_log(line)
-                    _process_line_state(line.strip())
+                    _process_line_state(line.strip(), line)
 
             live.update(make_layout())
             time.sleep(1/REFRESH_RATE)
 
-def _process_line_state(stripped):
+def _process_line_state(stripped, raw_line):
     global capturing_research, capturing_goals, research_buffer, goals_buffer
+    global title_buffer, hypothesis_buffer
     
+    # --- Identity Parsing ---
+    if "Title:" in raw_line and len(stripped) < 10: # Just "Title:" on line
+        title_buffer = True
+    elif title_buffer:
+        if stripped:
+            state.title = stripped
+            title_buffer = False
+            
+    if "Short Hypothesis:" in raw_line:
+        hypothesis_buffer = True
+    elif hypothesis_buffer:
+        if stripped:
+            state.hypothesis = stripped
+            hypothesis_buffer = False
+
     # --- Research Parsing ---
     if "Research summary:" in stripped:
         capturing_research = True
