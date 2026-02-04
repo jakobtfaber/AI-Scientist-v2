@@ -193,6 +193,31 @@ if __name__ == "__main__":
         print(f"Loaded {len(ideas)} pregenerated ideas from {args.load_ideas}")
 
     idea = ideas[args.idea_idx]
+    
+    # Enrich idea with Perplexity research (if available)
+    try:
+        from ai_scientist.research.perplexity_integration import refine_idea_with_research
+        
+        print(f"\n{'='*60}")
+        print("🔬 Enhancing idea with Perplexity research...")
+        print(f"{'='*60}\n")
+        
+        enriched_idea = refine_idea_with_research(idea)
+        
+        if 'perplexity_research' in enriched_idea:
+            idea = enriched_idea
+            print("\n✅ Idea enriched with literature review!")
+            print(f"Research summary: {len(idea['perplexity_research'])} chars")
+            print(f"{'='*60}\n")
+        else:
+            print("⚠️  Perplexity research not available (MCP server may be offline)")
+            print(f"{'='*60}\n")
+    except ImportError:
+        print("⚠️  Perplexity integration module not found - skipping research")
+    except Exception as e:
+        print(f"⚠️  Perplexity research failed: {e}")
+        print("Continuing with original idea...")
+
 
     date = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
     idea_dir = f"experiments/{date}_{idea['Name']}_attempt_{args.attempt_id}"

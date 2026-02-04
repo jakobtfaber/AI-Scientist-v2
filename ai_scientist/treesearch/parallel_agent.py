@@ -1653,7 +1653,7 @@ class ParallelAgent:
                                     checker = DataQualityChecker(
                                         min_samples=3,
                                         max_cv=0.2,
-                                        use_perplexity_validation=False  # Disable for speed
+                                        use_perplexity_validation=True  # Enable AI reasoning
                                     )
                                     issues = checker.validate(exp_data)
                                     
