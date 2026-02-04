@@ -572,7 +572,7 @@ class GeminiNativeClient:
 
 def create_client(model):
     print(f"Creating client with model: {model}...")
-    if 'gpt' in model:
+    if 'gpt' in model or 'o1' in model or 'o3' in model:
         return (
             openai.OpenAI(
                 api_key=os.environ["OPENAI_API_KEY"],
