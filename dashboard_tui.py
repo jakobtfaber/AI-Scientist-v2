@@ -324,7 +324,11 @@ def update_loop():
                      try:
                          with open(idea_file, 'r') as f:
                              content = f.read()
-                             if len(content) > 50:
+                             if "## Perplexity Research" in content:
+                                 # Extract just the research section
+                                 research_text = content.split("## Perplexity Research")[1].strip()
+                                 state.research_summary = research_text
+                             elif len(content) > 50:
                                  state.research_summary = content
                      except Exception:
                          pass
