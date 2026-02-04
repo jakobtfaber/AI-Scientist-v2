@@ -110,9 +110,9 @@ class Interpreter:
 
     def child_proc_setup(self, result_outq: Queue) -> None:
         # disable all warnings (before importing anything)
-        import shutup
-
-        shutup.mute_warnings()
+        # disable all warnings (before importing anything)
+        import warnings
+        warnings.simplefilter("ignore")
 
         for key, value in self.env_vars.items():
             os.environ[key] = value
