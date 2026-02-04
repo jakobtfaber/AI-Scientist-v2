@@ -23,7 +23,7 @@ print(f"Repairing run in: {idea_dir}")
 
 def save_token_tracker(idea_dir):
     with open(osp.join(idea_dir, "token_tracker.json"), "w") as f:
-        json.dump(token_tracker.results, f, indent=4)
+        json.dump(token_tracker.token_counts, f, indent=4)
     with open(osp.join(idea_dir, "token_tracker_interactions.json"), "w") as f:
         json.dump(token_tracker.interactions, f, indent=4)
 
