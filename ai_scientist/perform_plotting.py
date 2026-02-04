@@ -134,7 +134,7 @@ def run_aggregator_script(
 
 
 def aggregate_plots(
-    base_folder: str, model: str = "o1-2024-12-17", n_reflections: int = 5
+    base_folder: str, model: str = "gemini-3-flash-preview", n_reflections: int = 5
 ) -> None:
     filename = "auto_plot_aggregator.py"
     aggregator_script_path = os.path.join(base_folder, filename)

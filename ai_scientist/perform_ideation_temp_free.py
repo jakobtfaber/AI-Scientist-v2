@@ -282,7 +282,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model",
         type=str,
-        default="gpt-4o-2024-05-13",
+        default="gemini-3-pro-preview",
         choices=AVAILABLE_LLMS,
         help="Model to use for AI Scientist.",
     )

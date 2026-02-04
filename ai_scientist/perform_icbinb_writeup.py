@@ -742,7 +742,7 @@ def filter_experiment_summaries(exp_summaries, step_name):
     return filtered_summaries
 
 
-def gather_citations(base_folder, num_cite_rounds=20, small_model="gpt-4o"):
+def gather_citations(base_folder, num_cite_rounds=20, small_model="gemini-3-flash-preview"):
     """
     Gather citations for a paper, with ability to resume from previous progress.
 
@@ -859,8 +859,8 @@ def perform_writeup(
     citations_text=None,
     no_writing=False,
     num_cite_rounds=20,
-    small_model="gpt-4o",
-    big_model="o1-2024-12-17",
+    small_model="gemini-3-flash-preview",
+    big_model="gemini-3-pro-preview",
     n_writeup_reflections=3,
     page_limit=4,
 ):

@@ -2,13 +2,13 @@ import os
 import shutil
 import json
 import os.path as osp
-from ai_scientist.perform_plotting import aggregate_plots
 from ai_scientist.perform_writeup import perform_writeup
 from ai_scientist.perform_icbinb_writeup import (
     perform_writeup as perform_icbinb_writeup,
     gather_citations,
 )
-from ai_scientist.llm import create_client, save_token_tracker
+from ai_scientist.llm import create_client
+from ai_scientist.utils.token_tracker import token_tracker
 from ai_scientist.perform_llm_review import perform_review, load_paper
 from ai_scientist.perform_plotting import aggregate_plots
 
@@ -20,6 +20,12 @@ model_citation = "gemini-3-flash-preview"
 model_review = "gemini-3-pro-preview"
 
 print(f"Repairing run in: {idea_dir}")
+
+def save_token_tracker(idea_dir):
+    with open(osp.join(idea_dir, "token_tracker.json"), "w") as f:
+        json.dump(token_tracker.results, f, indent=4)
+    with open(osp.join(idea_dir, "token_tracker_interactions.json"), "w") as f:
+        json.dump(token_tracker.interactions, f, indent=4)
 
 # 1. Prepare experiment results for aggregation
 experiment_results_dir = osp.join(idea_dir, "logs/0-run/experiment_results")
