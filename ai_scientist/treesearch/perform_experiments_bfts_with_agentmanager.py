@@ -102,6 +102,40 @@ def perform_experiments_bfts(config_path: str):
 
     def step_callback(stage, journal):
         print("Step complete")
+        
+        # Check for supervisor feedback file (Human-in-the-Loop intervention)
+        supervisor_file = cfg.log_dir.parent / "supervisor_feedback.txt"
+        if supervisor_file.exists():
+            try:
+                with open(supervisor_file, "r") as f:
+                    feedback = f.read().strip()
+                
+                if feedback:
+                    print(f"\n{'='*60}")
+                    print("🧑‍🔬 SUPERVISOR FEEDBACK DETECTED:")
+                    print(f"{'='*60}")
+                    print(feedback)
+                    print(f"{'='*60}\n")
+                    
+                    # Store feedback in workspace for agent to see
+                    workspace_feedback = Path(cfg.workspace_dir) / "SUPERVISOR_DIRECTIVE.txt"
+                    with open(workspace_feedback, "a") as f:
+                        f.write(f"\n\n--- Feedback at Step {len(journal)} ---\n")
+                        f.write(feedback)
+                        f.write("\n")
+                    
+                    # Also store in stage notes
+                    notes_dir = cfg.log_dir / f"stage_{stage.name}" / "notes"
+                    notes_dir.mkdir(parents=True, exist_ok=True)
+                    with open(notes_dir / f"supervisor_feedback_step_{len(journal)}.txt", "w") as f:
+                        f.write(feedback)
+                
+                # Delete the file so it's only processed once
+                supervisor_file.unlink()
+                print("✅ Supervisor feedback integrated and file removed.\n")
+            except Exception as e:
+                print(f"⚠️ Error processing supervisor feedback: {e}")
+        
         try:
             # Generate and save notes for this step
             notes_dir = cfg.log_dir / f"stage_{stage.name}" / "notes"

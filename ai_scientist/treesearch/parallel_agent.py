@@ -393,6 +393,19 @@ class MinimalAgent:
 
         return {"Implementation guideline": impl_guideline}
 
+    def _get_supervisor_directive(self) -> str:
+        """Check for supervisor feedback file and return its contents"""
+        try:
+            supervisor_file = Path(self.cfg.workspace_dir) / "SUPERVISOR_DIRECTIVE.txt"
+            if supervisor_file.exists():
+                with open(supervisor_file, "r") as f:
+                    content = f.read().strip()
+                if content:
+                    return content
+        except Exception as e:
+            logger.warning(f"Error reading supervisor directive: {e}")
+        return ""
+
     @property
     def _prompt_resp_fmt(self):
         return {
@@ -451,6 +464,8 @@ class MinimalAgent:
         }
 
     def _draft(self) -> Node:
+        supervisor_directive = self._get_supervisor_directive()
+        
         prompt: Any = {
             "Introduction": (
                 "You are an AI researcher who is looking to publish a paper that will contribute significantly to the field."
@@ -463,6 +478,9 @@ class MinimalAgent:
             "Memory": self.memory_summary if self.memory_summary else "",
             "Instructions": {},
         }
+        
+        if supervisor_directive:
+            prompt["🧑‍🔬 CRITICAL SUPERVISOR DIRECTIVE"] = supervisor_directive
         prompt["Instructions"] |= self._prompt_resp_fmt
         prompt["Instructions"] |= {
             "Experiment design sketch guideline": [
@@ -492,6 +510,8 @@ class MinimalAgent:
         return Node(plan=plan, code=code)
 
     def _debug(self, parent_node: Node) -> Node:
+        supervisor_directive = self._get_supervisor_directive()
+        
         prompt: Any = {
             "Introduction": (
                 "You are an experienced AI researcher. Your previous code for research experiment had a bug, so based on the information below, you should revise it in order to fix this bug. "
@@ -505,6 +525,9 @@ class MinimalAgent:
             "Feedback about execution time": parent_node.exec_time_feedback,
             "Instructions": {},
         }
+        
+        if supervisor_directive:
+            prompt["🧑‍🔬 CRITICAL SUPERVISOR DIRECTIVE"] = supervisor_directive
         prompt["Instructions"] |= self._prompt_debug_resp_fmt
         prompt["Instructions"] |= {
             "Bugfix improvement sketch guideline": [
@@ -521,6 +544,8 @@ class MinimalAgent:
         return Node(plan=plan, code=code, parent=parent_node)
 
     def _improve(self, parent_node: Node) -> Node:
+        supervisor_directive = self._get_supervisor_directive()
+        
         prompt: Any = {
             "Introduction": (
                 "You are an experienced AI researcher. You are provided with a previously developed "
@@ -532,6 +557,9 @@ class MinimalAgent:
             "Feedback about execution time": parent_node.exec_time_feedback,
             "Instructions": {},
         }
+        
+        if supervisor_directive:
+            prompt["🧑‍🔬 CRITICAL SUPERVISOR DIRECTIVE"] = supervisor_directive
         prompt["Previous solution"] = {
             "Code": wrap_code(parent_node.code),
         }
