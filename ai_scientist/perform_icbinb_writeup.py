@@ -1067,15 +1067,20 @@ def perform_writeup(
             compile_latex(latex_folder, reflection_pdf)
 
             if vlm_client:
-                review_img_cap_ref = perform_imgs_cap_ref_review(
-                    vlm_client, vlm_model, reflection_pdf
-                )
-                
-                # Detect duplicate figures between main text and appendix
-                analysis_duplicate_figs = detect_duplicate_figures(
-                    vlm_client, vlm_model, reflection_pdf
-                )
-                print(analysis_duplicate_figs)
+                try:
+                    review_img_cap_ref = perform_imgs_cap_ref_review(
+                        vlm_client, vlm_model, reflection_pdf
+                    )
+                    
+                    # Detect duplicate figures between main text and appendix
+                    analysis_duplicate_figs = detect_duplicate_figures(
+                        vlm_client, vlm_model, reflection_pdf
+                    )
+                    print(analysis_duplicate_figs)
+                except Exception as e:
+                    print(f"VLM review failed: {e}")
+                    review_img_cap_ref = "VLM client unavailable due to error. No image reviews."
+                    analysis_duplicate_figs = "VLM client unavailable due to error. No duplicate analysis."
             else:
                 review_img_cap_ref = "VLM client unavailable. No image reviews."
                 analysis_duplicate_figs = "VLM client unavailable. No duplicate analysis."

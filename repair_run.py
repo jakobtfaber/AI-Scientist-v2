@@ -27,34 +27,38 @@ def save_token_tracker(idea_dir):
     with open(osp.join(idea_dir, "token_tracker_interactions.json"), "w") as f:
         json.dump(token_tracker.interactions, f, indent=4)
 
-# 1. Prepare experiment results for aggregation
-experiment_results_dir = osp.join(idea_dir, "logs/0-run/experiment_results")
-if osp.exists(experiment_results_dir):
-    print("Copying experiment results to top level...")
-    shutil.copytree(
-        experiment_results_dir,
-        osp.join(idea_dir, "experiment_results"),
-        dirs_exist_ok=True,
-    )
+# 1. Prepare experiment results for aggregation (Skipping - already done/error prone)
+# experiment_results_dir = osp.join(idea_dir, "logs/0-run/experiment_results")
+# if osp.exists(experiment_results_dir):
+#     print("Copying experiment results to top level...")
+#     try:
+#         shutil.copytree(
+#             experiment_results_dir,
+#             osp.join(idea_dir, "experiment_results"),
+#             dirs_exist_ok=True,
+#         )
+#     except Exception as e:
+#         print(f"Warning: Failed to copy experiment results: {e}")
 
-# 2. Plot Aggregation
-print("\n--- Starting Plot Aggregation ---")
-try:
-    aggregate_plots(base_folder=idea_dir, model=model_agg)
-except Exception as e:
-    print(f"Error in aggregate_plots: {e}")
+# 2. Plot Aggregation (Skipping - already done)
+# print("\n--- Starting Plot Aggregation ---")
+# try:
+#     aggregate_plots(base_folder=idea_dir, model=model_agg)
+# except Exception as e:
+#     print(f"Error in aggregate_plots: {e}")
 
-# 3. Citation Gathering
-print("\n--- Gathering Citations ---")
-try:
-    citations_text = gather_citations(
-        idea_dir,
-        num_cite_rounds=20,
-        small_model=model_citation,
-    )
-except Exception as e:
-    print(f"Error in gather_citations: {e}")
-    citations_text = ""
+# 3. Citation Gathering (Skipping - already done)
+# print("\n--- Gathering Citations ---")
+# try:
+#     citations_text = gather_citations(
+#         idea_dir,
+#         num_cite_rounds=20,
+#         small_model=model_citation,
+#     )
+# except Exception as e:
+#     print(f"Error in gather_citations: {e}")
+#     citations_text = ""
+citations_text = None # Load from cache
 
 # 4. Writeup
 print("\n--- Starting Writeup ---")

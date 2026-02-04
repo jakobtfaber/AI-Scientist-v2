@@ -484,6 +484,10 @@ def generate_vlm_img_selection_review(
 def perform_imgs_cap_ref_review_selection(
     client, client_model, pdf_path, reflection_page_info
 ):
+    if not validate_pdf_structure(pdf_path):
+        print(f"Warning: PDF {pdf_path} has structural issues, skipping VLM review selection")
+        return {}
+
     paper_txt = load_paper(pdf_path)
     img_folder_path = os.path.join(
         os.path.dirname(pdf_path),
