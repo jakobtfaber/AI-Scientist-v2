@@ -42,6 +42,9 @@ Implement best practices:
 - Aim to aggregate multiple figures into one plot if suitable, i.e. if they are all related to the same topic. You can place up to 3 plots in one row.
 - Provide well-labeled plots (axes, legends, titles) that highlight main findings. Use informative names everywhere, including in the legend for referencing them in the final paper. Make sure the legend is always visible.
 - Make the plots look professional (if applicable, no top and right spines, dpi of 300, adequate ylim, etc.).
+- ALWAYS use `plt.tight_layout()` before saving to prevent cut-off labels.
+- ALWAYS use `bbox_inches='tight'` in `plt.savefig()` to ensure all elements are saved.
+- Use reasonable figure sizes (e.g., (12, 4) or (15, 5)) for multi-panel plots. Avoid excessive widths like (20, 7) that distort aspect ratios.
 - Do not use labels with underscores, e.g. "loss_vs_epoch" should be "loss vs epoch".
 - For image examples, select a few categories/classes to showcase the diversity of results instead of showing a single category/class. Some can be included in the main paper, while the rest can go in the appendix.
 

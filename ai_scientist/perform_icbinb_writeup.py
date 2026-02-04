@@ -893,6 +893,12 @@ def perform_writeup(
                 "ai_scientist/blank_icbinb_latex", latex_folder, dirs_exist_ok=True
             )
 
+        # Copy figures to latex folder to resolve path issues
+        figures_src = osp.join(base_folder, "figures")
+        figures_dst = osp.join(latex_folder, "figures")
+        if osp.exists(figures_src):
+            shutil.copytree(figures_src, figures_dst, dirs_exist_ok=True)
+
         writeup_file = osp.join(latex_folder, "template.tex")
         with open(writeup_file, "r") as f:
             writeup_text = f.read()
