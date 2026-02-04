@@ -17,6 +17,8 @@ from ai_scientist.llm import (
 )
 
 from ai_scientist.tools.semantic_scholar import search_for_papers
+from ai_scientist.perform_vlm_review import generate_vlm_img_review
+from ai_scientist.vlm import create_client as create_vlm_client
 
 
 
@@ -654,6 +656,16 @@ def perform_writeup(
         updated_latex_code = latex_code_match.group(1).strip()
         with open(writeup_file, "w") as f:
             f.write(updated_latex_code)
+
+        # Run validation checks on initial writeup
+        validation_feedback = run_validation_checks(
+            base_folder=base_folder,
+            writeup_file=writeup_file,
+            updated_latex_code=updated_latex_code,
+            figures_dir=figures_dir,
+            aggregator_path=aggregator_path,
+            big_model=big_model
+        )
 
         # Multiple reflection loops on the final LaTeX
         for i in range(n_writeup_reflections):
