@@ -3,9 +3,13 @@ import shutil
 import json
 import os.path as osp
 from ai_scientist.perform_plotting import aggregate_plots
-from ai_scientist.perform_icbinb_writeup import gather_citations, perform_icbinb_writeup, perform_writeup
+from ai_scientist.perform_writeup import perform_writeup
+from ai_scientist.perform_icbinb_writeup import (
+    perform_writeup as perform_icbinb_writeup,
+    gather_citations,
+)
 from ai_scientist.llm import create_client, save_token_tracker
-from ai_scientist.perform_review import perform_review, load_paper
+from ai_scientist.perform_llm_review import perform_review, load_paper
 from ai_scientist.perform_plotting import aggregate_plots
 
 # Define the run to repair
