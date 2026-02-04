@@ -31,6 +31,8 @@ from rich.style import Style
 LOG_FILE = "gpu_ffa_validation_test.log"
 REFRESH_RATE = 4  # Hz
 
+
+
 # State State
 class DashboardState:
     def __init__(self):
@@ -38,9 +40,11 @@ class DashboardState:
         self.substage = "Wait..."
         self.goals = []
         self.metrics = {"CPU": "N/A", "GPU": "N/A", "Speedup": "N/A"}
+        self.speedup_history = deque(maxlen=20) # Store float values
         self.last_update = datetime.now()
         self.research_summary = "*Waiting for Perplexity research...*"
         self.validations = deque(maxlen=10)  # (Time, Check, Result, Message)
+        self.validation_stats = {"PASS": 0, "FAIL": 0}
         self.logs = deque(maxlen=30) # Increased log buffer
         
         # Identity
@@ -88,7 +92,9 @@ class DashboardState:
         if "Speedup Factor" in line:
             m = re.search(r"Speedup Factor.*?(\d+\.\d+)", line)
             if m and "{" not in line:
-                self.metrics["Speedup"] = m.group(1) + "x"
+                val = float(m.group(1))
+                self.metrics["Speedup"] = f"{val:.1f}x"
+                self.speedup_history.append(val)
 
         # Validation detection
         if "DATA QUALITY" in line:
@@ -98,6 +104,10 @@ class DashboardState:
                 result = parts[1].replace("[", "").strip()
                 msg = parts[2].strip()
                 self.validations.appendleft((datetime.now().strftime("%H:%M:%S"), "Data Quality", result, msg))
+                if "PASS" in result:
+                    self.validation_stats["PASS"] += 1
+                elif "FAIL" in result:
+                    self.validation_stats["FAIL"] += 1
         
         # Reasoning detection
         if "Perplexity reasoning validation:" in line or "Reasoning:" in line:
@@ -109,6 +119,26 @@ class DashboardState:
                  self.validations.appendleft((datetime.now().strftime("%H:%M:%S"), "AI Reasoning", "INFO", "Reasoning triggered"))
 
 state = DashboardState()
+
+def make_sparkline(data, width=30):
+    if not data:
+        return Text("Waiting for data...", style="dim")
+    
+    min_val = min(data)
+    max_val = max(data)
+    range_val = max_val - min_val if max_val != min_val else 1
+    
+    chars = [" ", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
+    result = []
+    
+    for val in data:
+        normalized = (val - min_val) / range_val
+        idx = int(normalized * (len(chars) - 1))
+        # Ensure index in bounds
+        idx = max(0, min(idx, len(chars)-1))
+        result.append(chars[idx])
+        
+    return Text("".join(result), style="bold yellow")
 
 def make_header():
     grid = Table.grid(expand=True)
@@ -127,56 +157,19 @@ def make_header():
         status_txt = "RUNNING"
         
     title_text = Text(" 🔬 The AI Scientist", style=f"bold white on {color}")
-    annot = Text(f" {state.title[:60]}... ", style="italic white on black")
+    annot = Text(f" {state.title[:50]}... ", style="italic white on black")
     
     status_line = Text(f"{status_txt} | Runtime: {elapsed_str} ", style=f"bold {color}")
     
     grid.add_row(title_text + annot, status_line)
     return Panel(grid, style="white on black", box=box.HEAVY)
 
-def make_status_panel():
-    grid = Table.grid(expand=True)
-    grid.add_column()
-    
-    # Status Table
-    table = Table(box=None, expand=True, show_header=False)
-    table.add_column("Metric", style="cyan")
-    table.add_column("Value", style="bold white")
-    
-    table.add_row("Current Stage", state.stage)
-    table.add_row("Sub-stage", state.substage)
-    
-    status_panel = Panel(table, title="[bold blue]Experiment Phase", border_style="blue")
-    
-    # Metrics Table
-    m_table = Table(box=None, expand=True, show_header=True)
-    m_table.add_column("Metric", style="yellow")
-    m_table.add_column("Value", style="bold yellow")
-    
-    m_table.add_row("CPU Runtime", state.metrics["CPU"])
-    m_table.add_row("GPU Runtime", state.metrics["GPU"])
-    m_table.add_row("Speedup", state.metrics["Speedup"])
-    
-    metrics_panel = Panel(m_table, title="[bold yellow]Performance Metrics", border_style="yellow")
-    
-    # Goals Panel
-    goals_text = "\n".join([f"• {g}" for g in state.goals]) if state.goals else "No active goals detected"
-    goals_panel = Panel(goals_text, title="[bold white]Stage Goals", border_style="white")
-    
-    return Layout(
-        Panel(
-            Text(""), # Placeholder for structure/grid
-            title="Overview",
-            border_style="dim"
-        )
-    )
-
 def make_left_column():
     # Manual Grid Layout for Left Column
     layout = Layout()
     layout.split_column(
         Layout(name="identity", size=8),
-        Layout(name="metrics", size=6),
+        Layout(name="metrics", size=10), # Increased for chart
         Layout(name="goals", size=8),
         Layout(name="validation")
     )
@@ -188,20 +181,41 @@ def make_left_column():
     grid.add_row(Text("Hypothesis:", style="bold cyan"), Text(state.hypothesis[:150] + "...", style="dim white"))
     layout["identity"].update(Panel(grid, title="[bold blue]Project Context", border_style="blue", box=box.ROUNDED))
     
-    # Metrics
+    # Metrics with Chart
+    metrics_layout = Layout()
+    metrics_layout.split_column(
+        Layout(name="table", ratio=1),
+        Layout(name="chart", size=3)
+    )
+    
     m_table = Table(box=None, expand=True)
     m_table.add_column("Metric", style="yellow")
     m_table.add_column("Value", style="bold yellow")
-    m_table.add_row("CPU Runtime", state.metrics["CPU"])
-    m_table.add_row("GPU Runtime", state.metrics["GPU"])
+    m_table.add_row("CPU", state.metrics["CPU"])
+    m_table.add_row("GPU", state.metrics["GPU"])
     m_table.add_row("Speedup", state.metrics["Speedup"])
-    layout["metrics"].update(Panel(m_table, title="[bold yellow]Performance Metrics", border_style="yellow", box=box.ROUNDED))
+    
+    metrics_layout["table"].update(m_table)
+    
+    # Sparkline
+    spark = make_sparkline(list(state.speedup_history))
+    metrics_layout["chart"].update(Panel(spark, title="Speedup Trend", border_style="yellow"))
+
+    layout["metrics"].update(Panel(metrics_layout, title="[bold yellow]Performance Analysis", border_style="yellow", box=box.ROUNDED))
     
     # Goals
     goals_text = "\n".join([f"• {g}" for g in state.goals]) if state.goals else "No active goals detected"
     layout["goals"].update(Panel(goals_text, title="[bold white]Current Goals", border_style="white", box=box.ROUNDED))
     
     # Validation
+    v_stats_grid = Table.grid(expand=True)
+    v_stats_grid.add_column(ratio=1)
+    v_stats_grid.add_column(ratio=1)
+    v_stats_grid.add_row(
+        Text(f"PASS: {state.validation_stats['PASS']}", style="bold green"),
+        Text(f"FAIL: {state.validation_stats['FAIL']}", style="bold red")
+    )
+    
     v_table = Table(box=box.SIMPLE, expand=True)
     v_table.add_column("Time", style="dim")
     v_table.add_column("Type")
@@ -215,7 +229,11 @@ def make_left_column():
             color = "green" if "PASS" in res else "red" if "FAIL" in res else "yellow"
             v_table.add_row(t, type_, f"[{color}]{res}[/{color}]", msg)
             
-    layout["validation"].update(Panel(v_table, title="[bold magenta]Validation & Reasoning", border_style="magenta", box=box.ROUNDED))
+    v_group = Table.grid(expand=True)
+    v_group.add_row(v_stats_grid)
+    v_group.add_row(v_table)
+    
+    layout["validation"].update(Panel(v_group, title="[bold magenta]Validation & Reasoning", border_style="magenta", box=box.ROUNDED))
     
     return layout
 
