@@ -58,6 +58,7 @@ class DashboardState:
              self.start_time = datetime.now()
              
         self.ai_reasoning = ""
+        self.experiment_dir = None
 
     def add_log(self, line):
         clean_line = line.strip()
@@ -117,6 +118,13 @@ class DashboardState:
                  self.validations.appendleft((datetime.now().strftime("%H:%M:%S"), "AI Reasoning", "INFO", "Reasoning: " + msg[:50] + "..."))
              else:
                  self.validations.appendleft((datetime.now().strftime("%H:%M:%S"), "AI Reasoning", "INFO", "Reasoning triggered"))
+
+        # Experiment Dir detection
+        if "Results will be saved in" in line:
+            # Example: Results will be saved in experiments/2026-02-03_...
+            parts = line.split("experiments/")
+            if len(parts) > 1:
+                self.experiment_dir = os.path.join("experiments", parts[1].strip())
 
 state = DashboardState()
 
@@ -310,13 +318,15 @@ def update_loop():
     with Live(make_layout(), refresh_per_second=REFRESH_RATE, screen=True) as live:
         while True:
             # Update research from file if needed
-            if state.experiment_dir and "Waiting" in state.research_summary:
+            if state.experiment_dir and len(state.research_summary) < 50:
                  idea_file = os.path.join(state.experiment_dir, "idea.md")
                  if os.path.exists(idea_file):
                      try:
                          with open(idea_file, 'r') as f:
-                             state.research_summary = f.read()
-                     except:
+                             content = f.read()
+                             if len(content) > 50:
+                                 state.research_summary = content
+                     except Exception:
                          pass
 
             with open(LOG_FILE, 'r') as f:
