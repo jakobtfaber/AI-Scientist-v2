@@ -399,7 +399,23 @@ def _process_line_state(stripped, raw_line):
              capturing_goals = False
 
 if __name__ == "__main__":
+    import argparse
+    import sys
+    
+    parser = argparse.ArgumentParser(description="AI Scientist TUI Dashboard")
+    parser.add_argument("log_file", nargs="?", default="gpu_ffa_validation_test.log", help="Path to the log file to monitor")
+    args = parser.parse_args()
+    
+    LOG_FILE = args.log_file
+    
+    if not os.path.exists(LOG_FILE):
+        print(f"Error: Log file '{LOG_FILE}' not found.")
+        print("Usage: python dashboard_tui.py [path/to/logfile.log]")
+        sys.exit(1)
+
     try:
         update_loop()
     except KeyboardInterrupt:
         print("\nDashboard stopped.")
+    except Exception as e:
+        console.print_exception()
