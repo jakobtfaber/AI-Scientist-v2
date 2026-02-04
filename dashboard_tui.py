@@ -186,7 +186,7 @@ def make_left_column():
     layout["metrics"].update(Panel(m_table, title="[bold yellow]Performance Metrics", border_style="yellow", box=box.ROUNDED))
     
     # Goals
-    goals_text = "\n".join([f"• {g}" for g in state.goals]) if state.goals else "Reading goals..."
+    goals_text = "\n".join([f"• {g}" for g in state.goals]) if state.goals else "No active goals detected"
     layout["goals"].update(Panel(goals_text, title="[bold white]Current Goals", border_style="white", box=box.ROUNDED))
     
     # Validation
@@ -251,27 +251,20 @@ def make_layout():
     
     return layout
 
-# Variables for multi-line capture
-research_buffer = []
-capturing_research = False
-metrics_buffer = []  # Unused, but kept for pattern
-goals_buffer = []
-capturing_goals = False
-
 def update_loop():
     global capturing_research, capturing_goals
     
-    # Determine offset
-    with open(LOG_FILE, 'r') as f:
-        f.seek(0, 2)
-        last_pos = f.tell()
-        # Backtrack further to catch goals/research if restarting
-        if last_pos > 20000:
-             f.seek(max(0, last_pos - 20000))
-             last_pos = f.tell()
-        else:
-             f.seek(0)
-             last_pos = 0
+    # Initial full scan to get current state
+    last_pos = 0
+    if os.path.exists(LOG_FILE):
+        with open(LOG_FILE, 'r') as f:
+            # Read everything cleanly first
+            content = f.read()
+            last_pos = f.tell()
+            for line in content.splitlines():
+                state.add_log(line)
+                # Run the state update logic on historical lines too
+                _process_line_state(line.strip())
 
     with Live(make_layout(), refresh_per_second=REFRESH_RATE, screen=True) as live:
         while True:
@@ -283,42 +276,46 @@ def update_loop():
             if new_data:
                 for line in new_data.splitlines():
                     state.add_log(line)
-                    stripped = line.strip()
-                    
-                    # --- Research Parsing ---
-                    if "Research summary:" in line:
-                        capturing_research = True
-                        research_buffer.clear()
-                    elif "Enhancing idea with Perplexity research..." in line:
-                         state.research_summary = "*Researching...*"
-                    
-                    # Heuristic end of research block
-                    if capturing_research:
-                        if "========" in line or "Testing idea..." in line:
-                            capturing_research = False
-                            if research_buffer:
-                                state.research_summary = "\n".join(research_buffer)
-                        elif "Research summary:" not in line and len(stripped) > 0:
-                            research_buffer.append(stripped)
-                            # Live update
-                            state.research_summary = "\n".join(research_buffer)
-
-                    # --- Goal Parsing ---
-                    if "Goals:" in line or "Sub-stage goals:" in line:
-                        capturing_goals = True
-                        goals_buffer.clear()
-                    elif capturing_goals:
-                         if stripped.startswith("-") or stripped.startswith("*"):
-                             goal_text = stripped.lstrip("-* ").strip()
-                             if goal_text:
-                                 goals_buffer.append(goal_text)
-                                 state.goals = list(goals_buffer)
-                         elif len(stripped) > 0 and not stripped.startswith("-") and "Stage" not in line:
-                             # End of indented list?
-                             capturing_goals = False
+                    _process_line_state(line.strip())
 
             live.update(make_layout())
             time.sleep(1/REFRESH_RATE)
+
+def _process_line_state(stripped):
+    global capturing_research, capturing_goals, research_buffer, goals_buffer
+    
+    # --- Research Parsing ---
+    if "Research summary:" in stripped:
+        capturing_research = True
+        research_buffer.clear()
+    elif "Enhancing idea with Perplexity research..." in stripped:
+         state.research_summary = "*Researching...*"
+    
+    # Heuristic end of research block
+    if capturing_research:
+        if "========" in stripped or "Testing idea..." in stripped:
+            capturing_research = False
+            if research_buffer:
+                state.research_summary = "\n".join(research_buffer)
+        elif "Research summary:" not in stripped and len(stripped) > 0:
+            research_buffer.append(stripped)
+            # Live update
+            state.research_summary = "\n".join(research_buffer)
+
+    # --- Goal Parsing ---
+    # Be robust to variations
+    if "Goals:" in stripped or "Sub-stage goals:" in stripped:
+        capturing_goals = True
+        goals_buffer.clear()
+    elif capturing_goals:
+         if stripped.startswith("-") or stripped.startswith("*"):
+             goal_text = stripped.lstrip("-* ").strip()
+             if goal_text:
+                 goals_buffer.append(goal_text)
+                 state.goals = list(goals_buffer)
+         elif len(stripped) > 0 and not stripped.startswith("-") and not stripped.startswith("*") and "Stage" not in stripped:
+             # End of indented list?
+             capturing_goals = False
 
 if __name__ == "__main__":
     try:
