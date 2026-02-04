@@ -7,7 +7,7 @@
     "Related Work": "Standard approaches (Ransom et al., Staelin) rely on efficient recursive folding or Fourier duality. Recent 'AI' approaches use black-box neural networks (CNNs) for classification but lack interpretability. The TFT differs by being a deterministic, mathematically defined transform that leverages the 'scatter-gather' paradigm of modern GPUs as a fundamental operator, akin to the relationship between the Quantum Fourier Transform and quantum gates.",
     "Experiments": [
       "Mathematically define the Tensor-Fold operator $\\mathcal{T}(x)$ and prove its invertibility or energy conservation properties (Parseval's theorem equivalent).",
-      "Implement the TFT using PyTorch tensor primitives (einsum, scatter_add_).",
+      "Implement the TFT using high-level parallel tensor operations.",
       "Compare sensitivity against standard FFA on synthetic signals with non-Gaussian noise and complex binary orbital modulation.",
       "Visualize the 'TFT Spectrum' to demonstrate feature separation impossible in standard Frequency/Phase domains."
     ],

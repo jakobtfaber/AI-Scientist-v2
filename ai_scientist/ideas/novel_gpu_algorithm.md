@@ -14,8 +14,8 @@ The history of signal processing is dominated by two giants: the Fast Fourier Tr
 
 This workshop challenges researchers to **invent** new mathematical transformations for periodic signal detection that are axiomatically designed for massive parallelism. We do not want optimizations of existing algorithms (e.g., "faster GPU FFT"). We want **novel operators** that:
 
-1.  Leverage tensor contractions, atomic scatter/gather, and massive concurrency as first-class mathematical primitives.
-2.  Capture properties that standard transforms miss (e.g., simultaneous phase-frequency evolution, non-sinusoidal periodicity, or cyclostationary features).
-3.  Are not constrained by the $O(N)$ efficiency mantras of the 1960s if they unlock superior sensitivity or feature extraction capabilities on modern hardware.
+1.  **Inherently Coherent**: The method must preserve phase information throughout the transformation to maximize sensitivity, prioritizing coherent summation (e.g., FFA-like) over incoherent detection (e.g., power-summing).
+2.  **Parallel-Native**: The formulation should naturally map to massive concurrency and high-bandwidth memory architectures, without being tied to specific implementation primitives (like scatter/gather).
+3.  **Unconstrained**: We encourage exploration of the vast theoretical space of parallel operators that utilize the full capability of modern hardware, even if they differ radically from standard serial algorithms or seem computationally expensive.
 
-Proposals must focus on mathematical novelty and algorithmic derivation. It is acceptable to propose "computationally expensive" methods if they provide a theoretical sensitivity gain, as hardware scales faster than algorithmic innovation.
+Proposals must focus on mathematical novelty and algorithmic derivation. We seek a fundamental rethink of how we search for periodicity when "compute is free" but "bandwidth is king."
